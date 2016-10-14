@@ -14,17 +14,22 @@ class MARC21ToISNIMARC:
         Convert using the conv method
 
         converter.conv()
+
+        :param inputfilename: input file location
+        :param outputfilename: output file location
+        :param countrycode: ISO Alpha-2 countrycode
     """
 
 
-    def __init__(self, inputfilename, outputfilename):
+    def __init__(self, inputfilename, outputfilename, countrycode):
         self.infile = inputfilename
         self.outfile = outputfilename
+        self.countrycode = countrycode
 
     def __str__(self):
         """
         In a string context MARC21ToISNIMARC will return basic info of the object itself
-        :return str:
+        :return str: String representation of the object
         """
         return "Converting file %s to %s, <%s object at %s, %s bytes>" % (self.infile, self.outfile, self.__class__.__name__,
                                                               hex(id(self)), self.__sizeof__())
@@ -35,7 +40,6 @@ class MARC21ToISNIMARC:
     def convert(self):
         """
         This method opens the specified files (input and output), reads infile, converts it and writes it into the outfile
-        :return:
         """
         logging.info("Starting conversion...")
         with open(self.infile, 'rb') as fh:
@@ -58,8 +62,8 @@ class MARC21ToISNIMARC:
         """
         Converts the record the pymarcs MARCReader has read to ISNIMARC format.
         Takes a whole record as a parameter and returns the converted record.
-        :param record:
-        :return:
+        :param record: Old MARC21 Record
+        :return newrecord: New ISNIMARC Record
         """
         newrecord = Record(force_utf8=True, to_unicode=True)
         for field in record.fields:
@@ -179,6 +183,7 @@ class MARC21ToISNIMARC:
             else:
                 newrecord.add_field(field)
 
-        newrecord.add_field(Field(tag='922', indicators=['\\', '\\'], subfields=['a', 'FI'], marctype="isni"))
+        ##Country field is obligatory for ISNIMARC
+        newrecord.add_field(Field(tag='922', indicators=['\\', '\\'], subfields=['a', self.countrycode], marctype="isni"))
         return newrecord
 
