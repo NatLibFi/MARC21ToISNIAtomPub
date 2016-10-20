@@ -282,5 +282,15 @@ class MARC21ToISNIMARC:
             elif field.tag == '370':
                 if record['370']['e']:
                     requestdict["Request"]["location"] = {"countryCode": record['370']['e']}
+            elif field.tag == '670':
+                requestdict["Request"]["externalInformation"] = {"source": record['670']['a']}
+                if record['670']['b']:
+                    requestdict["Request"]["externalInformation"] = {"information": record['670']['b']}
+                if record['670']['u']:
+                    requestdict["Request"]["externalInformation"] = {"URI": record['670']['u']}
+            elif field.tag == '377':
+                requestdict["Request"]["LanguageOfIdentity"] = record['377']['a']
+            elif field.tag == '020':
+                requestdict["Request"]
 
         return requestdict
