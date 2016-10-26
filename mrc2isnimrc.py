@@ -1,6 +1,7 @@
 import logging
 from pymarc import MARCReader, Record, Field, XMLWriter
 import sys, os, pprint
+from dicttoxml import dicttoxml
 
 
 class MARC21ToISNIMARC:
@@ -83,7 +84,7 @@ class MARC21ToISNIMARC:
             out.close()
             print("\rConversion done.")
 
-    def convert2ISNIRequest(self, dirname):
+    def convert2ISNIRequestXML(self, dirname):
         """
 
         :param dirname:
@@ -96,12 +97,19 @@ class MARC21ToISNIMARC:
             if not os.path.exists(dirname):
                 os.mkdir(dirname)
             reader = MARCReader(fh, force_utf8=True, to_unicode=True)
+            i = 1
             for record in reader:
                 if any(f.tag == self.skip for f in record.fields):
                     continue
                 logging.info("Converting record.")
                 r = self.makeIsniRequest(record)
-                pp.pprint(r)
+                #pp.pprint(r)
+                xml = dicttoxml(r)
+                xmlfile = open(dirname+"/request_"+str(i)+".xml", 'wb+')
+                xmlfile.write(xml)
+                xmlfile.close()
+                i += 1
+
             print("Conversion done")
 
 
