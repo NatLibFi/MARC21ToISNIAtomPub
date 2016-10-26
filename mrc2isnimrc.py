@@ -254,34 +254,34 @@ class MARC21ToISNIMARC:
                            "title": "", "identifier": "", "identifierValue": "", "identifierType": ""
                        }}}
                        """
-        requestdict = {"Request": {}}
+        requestdict = {"Request": {"requestID": {"dateTimeOfRequest": "", "requestTransactionId": ""}, "identityInformation": {}}}
         for field in record.fields:
             if field.tag == '024':
-                requestdict["Request"]["requestorIdentifierOfIdentity"] = {"otheridentifierOfIdentity": {"identifier": record['024']['a']}}
+                requestdict["Request"]["identityInformation"]["requestorIdentifierOfIdentity"] = {"otheridentifierOfIdentity": {"identifier": record['024']['a']}}
             elif field.tag == '035':
-                requestdict["Request"]["requestorIdentifierOfIdentity"] = {"identifier": record['035']['a']}
+                requestdict["Request"]["identityInformation"]["requestorIdentifierOfIdentity"] = {"identifier": record['035']['a']}
             elif field.tag == '110':
-                requestdict["Request"]["organisationName"] = {"mainName": record['110']['a']}
+                requestdict["Request"]["identityInformation"]["organisationName"] = {"mainName": record['110']['a']}
                 if record['110']['b']:
-                    requestdict["Request"]["organisationName"] = {"subdivisionName": record['110']['b']}
+                    requestdict["Request"]["identityInformation"]["organisationName"] = {"subdivisionName": record['110']['b']}
             elif field.tag == '368':
-                requestdict["Request"]["organisationType"] = record['368']['a']
+                requestdict["Request"]["identityInformation"]["organisationType"] = record['368']['a']
             elif field.tag == '046':
                 if record['046']['s']:
-                    requestdict["Request"]["usageDateFrom"] = record['046']['s']
+                    requestdict["Request"]["identityInformation"]["usageDateFrom"] = record['046']['s']
                 if record['046']['t']:
-                    requestdict["Request"]["usageDateTo"] = record['046']['t']
+                    requestdict["Request"]["identityInformation"]["usageDateTo"] = record['046']['t']
                 if record['046']['q']:
-                    requestdict["Request"]["usageDateFrom"] = record['046']['q']
+                    requestdict["Request"]["identityInformation"]["usageDateFrom"] = record['046']['q']
                 if record['046']['r']:
-                    requestdict["Request"]["usageDateTo"] = record['046']['r']
+                    requestdict["Request"]["identityInformation"]["usageDateTo"] = record['046']['r']
             elif field.tag == '410':
-                requestdict["Request"]["organisationName"]["organisationNameVariant"] = record['410']['a']
+                requestdict["Request"]["identityInformation"]["organisationName"]["organisationNameVariant"] = record['410']['a']
             elif field.tag == '411':
-                requestdict["Request"]["organisationName"]["organisationNameVariant"] = record['411']['a']
+                requestdict["Request"]["identityInformation"]["organisationName"]["organisationNameVariant"] = record['411']['a']
             elif field.tag == '370':
                 if record['370']['e']:
-                    requestdict["Request"]["location"] = {"countryCode": record['370']['e']}
+                    requestdict["Request"]["identityInformation"]["location"] = {"countryCode": record['370']['e']}
             elif field.tag == '670':
                 requestdict["Request"]["externalInformation"] = {"source": record['670']['a']}
                 if record['670']['b']:
@@ -289,8 +289,21 @@ class MARC21ToISNIMARC:
                 if record['670']['u']:
                     requestdict["Request"]["externalInformation"] = {"URI": record['670']['u']}
             elif field.tag == '377':
-                requestdict["Request"]["LanguageOfIdentity"] = record['377']['a']
+                requestdict["Request"]["identityInformation"]["languageOfIdentity"] = record['377']['a']
             elif field.tag == '020':
-                requestdict["Request"]
+                requestdict["Request"]["identityInformation"]["identity"]["resource"] = {"identifier": {"identifierType": "ISBN", "identifierValue": record['020']['a']}}
+            elif field.tag == '022':
+                requestdict["Request"]["identityInformation"]["identity"]["resource"] = {"identifier": {"identifierType": "ISSN", "identifierValue": record['022']['a']}}
+            elif field.tag == '024':
+                requestdict["Request"]["identityInformation"]["identity"]["resource"] = {"identifier": {"identifierType": "Other", "identifierValue": record['024']['a']}}
+            elif field.tag == '245':
+                requestdict["Request"]["identityInformation"]["identity"]["titleOfWork"] = {"title": record['245']['a']}
+                if record['245']['b']:
+                    requestdict["Request"]["identityInformation"]["identity"]["titleOfWork"] = {"subtitle": record['245']['b']}
+            elif field.tag == '260':
+                if record['260']['b']:
+                    requestdict["Request"]["identityInformation"]["identity"]["titleOfWork"] = {"publisher": record['260']['b']}
+                if record['260']['c']:
+                    requestdict["Request"]["identityInformation"]["identity"]["titleOfWork"] = {"date": record['245']['c']}
 
         return requestdict
