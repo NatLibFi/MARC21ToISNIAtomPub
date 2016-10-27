@@ -2,6 +2,7 @@ import logging
 from pymarc import MARCReader, Record, Field, XMLWriter
 import sys, os, pprint
 from dicttoxml import dicttoxml
+from xml.dom.minidom import parseString
 
 
 class MARC21ToISNIMARC:
@@ -104,9 +105,10 @@ class MARC21ToISNIMARC:
                 logging.info("Converting record.")
                 r = self.makeIsniRequest(record)
                 #pp.pprint(r)
-                xml = dicttoxml(r)
+                xml = dicttoxml(r, root=False, attr_type=False)
+                xml = parseString(xml).toprettyxml()
                 xmlfile = open(dirname+"/request_"+str(i)+".xml", 'wb+')
-                xmlfile.write(xml)
+                xmlfile.write(bytes(xml, 'UTF-8'))
                 xmlfile.close()
                 i += 1
 
