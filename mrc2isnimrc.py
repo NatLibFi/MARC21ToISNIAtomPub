@@ -85,20 +85,23 @@ class MARC21ToISNIMARC:
             out.close()
             print("\rConversion done.")
 
-    def convert2ISNIRequestXML(self, dirname):
+    def convert2ISNIRequestXML(self, dirname, dirmax=20):
         """
-
+        Converts MARC21 to ISNI XML Requests. Creates directory dirname, and creates XML Request files into the folder.
+        dirmax default is 20, so it makes 20 request xml files per folder before creating a new one.
         :param dirname:
+        :param dirmax:
         """
         if self.skip:
             print("Skipping records with %s field" % self.skip)
         logging.info("Starting mrc to isni request conversion...")
-        pp = pprint.PrettyPrinter(indent=2)
+        #pp = pprint.PrettyPrinter(indent=2)
         with open(self.infile, 'rb') as fh:
             if not os.path.exists(dirname):
                 os.mkdir(dirname)
             reader = MARCReader(fh, force_utf8=True, to_unicode=True)
             i = 1
+            dirinc = 1
             for record in reader:
                 if any(f.tag == self.skip for f in record.fields):
                     continue
@@ -107,7 +110,12 @@ class MARC21ToISNIMARC:
                 #pp.pprint(r)
                 xml = dicttoxml(r, root=False, attr_type=False)
                 xml = parseString(xml).toprettyxml()
-                xmlfile = open(dirname+"/request_"+str(i)+".xml", 'wb+')
+                if i % dirmax == 0:
+                    dirinc += 1
+                subdir = dirname+"/"+str(dirinc)
+                if not(os.path.exists(subdir)):
+                    os.mkdir(subdir)
+                xmlfile = open(subdir+"/request_"+str(i)+".xml", 'wb+')
                 xmlfile.write(bytes(xml, 'UTF-8'))
                 xmlfile.close()
                 i += 1
@@ -245,25 +253,6 @@ class MARC21ToISNIMARC:
         return newrecord
 
     def makeIsniRequest(self, record):
-
-        """
-        requestdict = {"requestorIdentifierOfIdentity": {"identifier": "", "type": "", "otheridentifierOfIdentity":{ "identifier": "", "type": ""}},
-                       "personalName": {"nameUse": "", "personalName": "", "numeration": "", "nameTitle":""},
-                       "birthDate": "", "deathDate": "", "nationality": "", "personalNameVariant": "", "instrumentAndVoice": "",
-                       "location": {"countryCode": "", "locode": "", "regionOrState": "", "city": ""},
-                       "countriesAssociated": {"countryCode": "", "regionOrState": "", "city": ""},
-                       "externalInformation": {"source": "", "information": "", "URI": ""},
-                       "LanguageOfIdentity": "",
-                       "isRelated": {"relationType": "", "hasMember": {}, "hasEmployee": {}, "supersedes": {}, "isAffiliatedWith": {}, "relationQualification": "",
-                                     "startDateOfRelationship": "", "endDateOfRelationship": ""},
-                       "isNot": {"identityType": "", "PPN":{"personalName": "", "organisationName": ""}},
-                       "merge": "",
-                       "titleOfWork": {"title": "", "subtitle": "", "Publisher": "", "dateOfPublication": "", "resourceIdentifier":{
-                           "identifier": "", "identifierValue": "", "identifierType": ""
-                       }, "creationClass": {}, "creationRole": {}, "fieldOfCreation": {"fieldType": {}, "fieldOfCreationValue": ""}, "contributedTo": {
-                           "title": "", "identifier": "", "identifierValue": "", "identifierType": ""
-                       }}}
-                       """
         requestdict = {"Request": {"requestID": {"dateTimeOfRequest": "", "requestTransactionId": ""}, "identityInformation": {"identity": {"resource": {"titleOfWork": {},
                                                                                                                                                          "identifier": {},
                                                                                                                                                          "creationClass": {},
