@@ -290,25 +290,20 @@ class MARC21ToISNIMARC:
         return newrecord
 
     def makeIsniRequest(self, record):
-        requestdict = {"Request": {"requestID": {"dateTimeOfRequest": "", "requestTransactionId": ""},
-                                   "identityInformation": {"identity": {"resource": {"titleOfWork": {},
-                                                                                     "identifier": {},
-                                                                                     "creationClass": {},
-                                                                                     "creationRole": {}}},
-                                                           "noISNI": {}}}}
+        requestdict = {"Request": {"identityInformation": {"identity": {"organisation": {"organisationName": {"mainName": ""}, "organisationNameVariant": {"mainName": ""}}}}}}
         for field in record.fields:
             if field.tag == '024':
                 requestdict["Request"]["identityInformation"]["requestorIdentifierOfIdentity"] = {
                     "otheridentifierOfIdentity": {"identifier": record['024']['a']}}
             elif field.tag == '100':
-                requestdict["Request"]["identityInformation"]["noISNI"] = {"personalName": record['100']['a']}
+                requestdict["Request"]["identityInformation"] = {"personalName": record['100']['a']}
             elif field.tag == '035':
                 requestdict["Request"]["identityInformation"]["requestorIdentifierOfIdentity"] = {
                     "identifier": record['035']['a']}
             elif field.tag == '110':
-                requestdict["Request"]["identityInformation"]["noISNI"]["organisationName"] = {"mainName": record['110']['a']}
+                requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"] = {"mainName": record['110']['a']}
                 if record['110']['b']:
-                    requestdict["Request"]["identityInformation"]["noISNI"]["organisationName"] = {
+                    requestdict["Request"]["identityInformation"]["organisationName"] = {
                         "subdivisionName": record['110']['b']}
                 if record['110']['e']:
                     requestdict["Request"]["identityInformation"]["identity"]["resource"]["creationRole"] = \
@@ -325,8 +320,7 @@ class MARC21ToISNIMARC:
                 if record['046']['r']:
                     requestdict["Request"]["identityInformation"]["usageDateTo"] = record['046']['r']
             elif field.tag == '410':
-                requestdict["Request"]["identityInformation"]["organisationName"]["organisationNameVariant"] = \
-                record['410']['a']
+                requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"] = {"mainName": record['410']['a']}
             elif field.tag == '411':
                 requestdict["Request"]["identityInformation"]["organisationName"]["organisationNameVariant"] = \
                 record['411']['a']
