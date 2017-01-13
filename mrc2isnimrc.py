@@ -292,7 +292,7 @@ class MARC21ToISNIMARC:
 
     def makeIsniRequest(self, record):
         requestdict = {"Request": {"identityInformation": {"identity": {"requestIdentifierOfIdentity": {"identifier": ""}, "personOrFiction": {"personalName": {"resource": {}, "name": "", "nameUse": ""}},
-            "organisation": {"organisationName": {"mainName": "", "subdivisionName": ""}, "organisationNameVariant": {"mainName": ""}}}, "externalInformation": {"source": "", "URI": "", "information": ""}}}}
+            "organisation": {"organisationName": {"mainName": ""}, "organisationNameVariant": {"mainName": ""}}}, "externalInformation": {"source": ""}}}}
         for field in record.fields:
             if field.tag == '024':
                 requestdict["Request"]["identityInformation"]["requestorIdentifierOfIdentity"] = {
