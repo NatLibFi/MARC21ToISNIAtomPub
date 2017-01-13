@@ -300,8 +300,9 @@ class MARC21ToISNIMARC:
             elif field.tag == '100':
                 requestdict["Request"]["identityInformation"]["identity"]["personOrFiction"]["personalName"].update({"name": record['100']['a']})
             elif field.tag == '035':
-                requestdict["Request"]["identityInformation"]["identity"]["requestorIdentifierOfIdentity"] = {
-                    "identifier": record['035']['a']}
+                requestdict["Request"]["identityInformation"]["identity"]["requestorIdentifierOfIdentity"] = {"identifier": record['035']['a']}
+            elif field.tag == '001':
+                requestdict["Request"]["identityInformation"]["identity"]["requestorIdentifierOfIdentity"] = {"identifier": "(FI-ASTERI-N)"+record['001'].data}
             elif field.tag == '110':
                 requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"].update({"mainName": record['110']['a']})
                 if record['110']['b']:
