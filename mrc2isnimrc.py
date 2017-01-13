@@ -104,6 +104,7 @@ class MARC21ToISNIMARC:
             dirinc = 1
             for record in reader:
                 if any(f.tag == self.skip for f in record.fields):
+                    print("Skipped")
                     continue
                 logging.info("Converting record.")
                 r = self.makeIsniRequest(record)
@@ -290,24 +291,21 @@ class MARC21ToISNIMARC:
         return newrecord
 
     def makeIsniRequest(self, record):
-        requestdict = {"Request": {"identityInformation": {"identity": {"organisation": {"organisationName": {"mainName": ""}, "organisationNameVariant": {"mainName": ""}}}}}}
+        requestdict = {"Request": {"identityInformation": {"identity": {"requestIdentifierOfIdentity": {"identifier": ""}, "personOrFiction": {"personalName": {"resource": {}, "name": "", "nameUse": ""}},
+            "organisation": {"organisationName": {"mainName": "", "subdivisionName": ""}, "organisationNameVariant": {"mainName": ""}}}, "externalInformation": {"source": "", "URI": "", "information": ""}}}}
         for field in record.fields:
             if field.tag == '024':
                 requestdict["Request"]["identityInformation"]["requestorIdentifierOfIdentity"] = {
                     "otheridentifierOfIdentity": {"identifier": record['024']['a']}}
             elif field.tag == '100':
-                requestdict["Request"]["identityInformation"] = {"personalName": record['100']['a']}
+                requestdict["Request"]["identityInformation"]["identity"]["personOrFiction"]["personalName"].update({"name": record['100']['a']})
             elif field.tag == '035':
-                requestdict["Request"]["identityInformation"]["requestorIdentifierOfIdentity"] = {
+                requestdict["Request"]["identityInformation"]["identity"]["requestorIdentifierOfIdentity"] = {
                     "identifier": record['035']['a']}
             elif field.tag == '110':
-                requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"] = {"mainName": record['110']['a']}
+                requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"].update({"mainName": record['110']['a']})
                 if record['110']['b']:
-                    requestdict["Request"]["identityInformation"]["organisationName"] = {
-                        "subdivisionName": record['110']['b']}
-                if record['110']['e']:
-                    requestdict["Request"]["identityInformation"]["identity"]["resource"]["creationRole"] = \
-                    record['110']['e']
+                    requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"].update({"subdivisionName": record['110']['b']})
             elif field.tag == '368':
                 requestdict["Request"]["identityInformation"]["organisationType"] = record['368']['a']
             elif field.tag == '046':
@@ -322,17 +320,17 @@ class MARC21ToISNIMARC:
             elif field.tag == '410':
                 requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"] = {"mainName": record['410']['a']}
             elif field.tag == '411':
-                requestdict["Request"]["identityInformation"]["organisationName"]["organisationNameVariant"] = \
-                record['411']['a']
+                requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"] = \
+                    {"mainName": record['411']['a']}
             elif field.tag == '370':
                 if record['370']['e']:
                     requestdict["Request"]["identityInformation"]["location"] = {"countryCode": record['370']['e']}
             elif field.tag == '670':
-                requestdict["Request"]["externalInformation"] = {"source": record['670']['a']}
+                requestdict["Request"]["identityInformation"]["externalInformation"].update({"source": record['670']['a']})
                 if record['670']['b']:
-                    requestdict["Request"]["externalInformation"] = {"information": record['670']['b']}
+                    requestdict["Request"]["identityInformation"]["externalInformation"].update({"information": record['670']['b']})
                 if record['670']['u']:
-                    requestdict["Request"]["externalInformation"] = {"URI": record['670']['u']}
+                    requestdict["Request"]["identityInformation"]["externalInformation"].update({"URI": record['670']['u']})
             elif field.tag == '377':
                 requestdict["Request"]["identityInformation"]["languageOfIdentity"] = record['377']['a']
             elif field.tag == '020':
@@ -357,7 +355,16 @@ class MARC21ToISNIMARC:
                     requestdict["Request"]["identityInformation"]["identity"]["resource"]["titleOfWork"]["date"] = \
                     record['245']['c']
             elif field.tag == '336':
-                requestdict["Request"]["identityInformation"]["identity"]["resource"]["creationClass"] = record['336'][
-                    'a']
+                requestdict["Request"]["identityInformation"]["identity"]["resource"]["creationClass"] = record['336']['a']
+
+
+        if not requestdict["Request"]["identityInformation"]["identity"]["personOrFiction"]["personalName"]["name"]:
+            del requestdict["Request"]["identityInformation"]["identity"]["personOrFiction"]
+        if not requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"]["mainName"]:
+            del requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"]
+        if not requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"]["mainName"]:
+            del requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"]
+        if not requestdict["Request"]["identityInformation"]["externalInformation"]["source"]:
+            del requestdict["Request"]["identityInformation"]["externalInformation"]
 
         return requestdict
