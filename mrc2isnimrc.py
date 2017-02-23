@@ -3,6 +3,7 @@ from pymarc import MARCReader, Record, Field, XMLWriter
 import sys, os, pprint
 from dicttoxml import dicttoxml
 from xml.dom.minidom import parseString
+import xml.etree.cElementTree as ET
 
 
 class MARC21ToISNIMARC:
@@ -108,8 +109,9 @@ class MARC21ToISNIMARC:
                     continue
                 logging.info("Converting record.")
                 r = self.makeIsniRequest(record)
-                # pp.pprint(r)
-                xml = dicttoxml(r, root=False, attr_type=False)
+                #pp.pprint(r)
+                # xml = dicttoxml(r, root=False, attr_type=False)
+
                 xml = parseString(xml).toprettyxml()
                 if i % dirmax == 0:
                     dirinc += 1
@@ -291,74 +293,121 @@ class MARC21ToISNIMARC:
         return newrecord
 
     def makeIsniRequest(self, record):
-        requestdict = {"Request": {"identityInformation": {"identity": {"requestIdentifierOfIdentity": {"identifier": ""}, "personOrFiction": {"personalName": {"resource": {}, "name": "", "nameUse": ""}},
-            "organisation": {"organisationName": {"mainName": ""}, "organisationNameVariant": {"mainName": ""}}}, "externalInformation": {"source": ""}}}}
+
+        organisationNameVariants = []
+        organisationMainNames = []
+        requestIdentifier = []
+        personalName = []
+        organisationSubdivNames = []
+        organisationTypes = []
+        usageDateFrom = []
+        usageDateTo = []
+        locationCountryCode = []
+        externalInformationSource = []
+        externalInformationInfo = []
+        externalInformationURI = []
+        languageOfIdentity = []
+        identifierISBN = []
+        identifierISSN = []
+        identifierOther = []
+        titleOfWorkTitle = []
+        titleOfWorkSubtitle = []
+        titleOfWorkPublisher = []
+        titleOfWorkDate = []
+        creationClass = []
+        otherIdentifier = []
+
+        requestdict = {"Request": {"identityInformation": {"identity": {"personOrFiction": {"personalName": {"resource": {}, "name": "", "nameUse": ""}},
+            "organisation": {"organisationName": {"mainName": ""}, "organisationType": "Other to be defined", "organisationNameVariant": {"mainName": ""}}}, "externalInformation": {"source": ""}}}}
+
         for field in record.fields:
             if field.tag == '024':
-                requestdict["Request"]["identityInformation"]["requestorIdentifierOfIdentity"] = {
-                    "otheridentifierOfIdentity": {"identifier": record['024']['a']}}
+                #requestdict["Request"]["identityInformation"]["requestorIdentifierOfIdentity"] = {"otheridentifierOfIdentity": {"identifier": record['024']['a']}}
+                otherIdentifier.append(record['024']['a'])
             elif field.tag == '100':
-                requestdict["Request"]["identityInformation"]["identity"]["personOrFiction"]["personalName"].update({"name": record['100']['a']})
+                #requestdict["Request"]["identityInformation"]["identity"]["personOrFiction"]["personalName"].update({"name": record['100']['a']})
+                personalName.append(record['100']['a'])
             elif field.tag == '035':
-                requestdict["Request"]["identityInformation"]["identity"]["requestorIdentifierOfIdentity"] = {"identifier": record['035']['a']}
+                #requestdict["Request"]["identityInformation"]["identity"]["requestorIdentifierOfIdentity"] = {"identifier": record['035']['a']}
+                requestIdentifier.append(record['035']['a'])
             elif field.tag == '001':
-                requestdict["Request"]["identityInformation"]["identity"]["requestorIdentifierOfIdentity"] = {"identifier": "(FI-ASTERI-N)"+record['001'].data}
+                #requestdict["Request"]["identityInformation"]["identity"]["requestorIdentifierOfIdentity"] = {"identifier": "(FI-ASTERI-N)"+record['001'].data}
+                requestIdentifier.append("(FI-ASTERI-N)"+record['001'].data)
             elif field.tag == '110':
-                requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"].update({"mainName": record['110']['a']})
+                #requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"].update({"mainName": record['110']['a']})
+                organisationMainNames.append(record['110']['a'])
                 if record['110']['b']:
-                    requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"].update({"subdivisionName": record['110']['b']})
+                    #requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"].update({"subdivisionName": record['110']['b']})
+                    organisationSubdivNames.append(record['110']['b'])
             elif field.tag == '368':
-                requestdict["Request"]["identityInformation"]["organisationType"] = record['368']['a']
+                #requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationType"] = record['368']['a']
+                organisationTypes.append(record['368']['a'])
             elif field.tag == '046':
                 if record['046']['s']:
-                    requestdict["Request"]["identityInformation"]["usageDateFrom"] = record['046']['s']
+                    #requestdict["Request"]["identityInformation"]["usageDateFrom"] = record['046']['s']
+                    usageDateFrom.append(record['046']['s'])
                 if record['046']['t']:
-                    requestdict["Request"]["identityInformation"]["usageDateTo"] = record['046']['t']
+                    #requestdict["Request"]["identityInformation"]["usageDateTo"] = record['046']['t']
+                    usageDateTo.append(record['046']['t'])
                 if record['046']['q']:
-                    requestdict["Request"]["identityInformation"]["usageDateFrom"] = record['046']['q']
+                    #requestdict["Request"]["identityInformation"]["usageDateFrom"] = record['046']['q']
+                    usageDateFrom.append(record['046']['q'])
                 if record['046']['r']:
-                    requestdict["Request"]["identityInformation"]["usageDateTo"] = record['046']['r']
+                    #requestdict["Request"]["identityInformation"]["usageDateTo"] = record['046']['r']
+                    usageDateTo.append(record['046']['r'])
             elif field.tag == '410':
-                requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"] = {"mainName": record['410']['a']}
+                #requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"] = {"mainName": record['410']['a']}
+                organisationNameVariants.append(record['410']['a'])
+                if record['410']['b']:
+                    organisationSubdivNames.append(record['410']['b'])
             elif field.tag == '411':
-                requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"] = \
-                    {"mainName": record['411']['a']}
+                #requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"] = {"mainName": record['411']['a']}
+                organisationNameVariants.append(record['411']['a'])
+                if record['411']['b']:
+                    organisationSubdivNames.append(record['411']['b'])
             elif field.tag == '370':
                 if record['370']['e']:
-                    requestdict["Request"]["identityInformation"]["location"] = {"countryCode": record['370']['e']}
+                    #requestdict["Request"]["identityInformation"]["location"] = {"countryCode": record['370']['e']}
+                    locationCountryCode.append(record['370']['e'])
             elif field.tag == '670':
-                requestdict["Request"]["identityInformation"]["externalInformation"].update({"source": record['670']['a']})
+                #requestdict["Request"]["identityInformation"]["externalInformation"].update({"source": record['670']['a']})
+                externalInformationSource.append(record['670']['a'])
                 if record['670']['b']:
-                    requestdict["Request"]["identityInformation"]["externalInformation"].update({"information": record['670']['b']})
+                    #requestdict["Request"]["identityInformation"]["externalInformation"].update({"information": record['670']['b']})
+                    externalInformationInfo.append(record['670']['b'])
                 if record['670']['u']:
-                    requestdict["Request"]["identityInformation"]["externalInformation"].update({"URI": record['670']['u']})
+                    #requestdict["Request"]["identityInformation"]["externalInformation"].update({"URI": record['670']['u']})
+                    externalInformationURI.append(record['670']['u'])
             elif field.tag == '377':
-                requestdict["Request"]["identityInformation"]["languageOfIdentity"] = record['377']['a']
+                #requestdict["Request"]["identityInformation"]["languageOfIdentity"] = record['377']['a']
+                languageOfIdentity.append(record['377']['a'])
             elif field.tag == '020':
-                requestdict["Request"]["identityInformation"]["identity"]["resource"]["identifier"] = {
-                    "identifierType": "ISBN", "identifierValue": record['020']['a']}
+                #requestdict["Request"]["identityInformation"]["identity"]["resource"]["identifier"] = {"identifierType": "ISBN", "identifierValue": record['020']['a']}
+                identifierISBN.append(record['020']['a'])
             elif field.tag == '022':
-                requestdict["Request"]["identityInformation"]["identity"]["resource"]["identifier"] = {
-                    "identifierType": "ISSN", "identifierValue": record['022']['a']}
+                #requestdict["Request"]["identityInformation"]["identity"]["resource"]["identifier"] = {"identifierType": "ISSN", "identifierValue": record['022']['a']}
+                identifierISSN.append(record['022']['a'])
             elif field.tag == '024':
-                requestdict["Request"]["identityInformation"]["identity"]["resource"]["identifier"] = {
-                    "identifierType": "Other", "identifierValue": record['024']['a']}
+                #requestdict["Request"]["identityInformation"]["identity"]["resource"]["identifier"] = {"identifierType": "Other", "identifierValue": record['024']['a']}
+                identifierOther.append(record['024']['a'])
             elif field.tag == '245':
-                requestdict["Request"]["identityInformation"]["identity"]["titleOfWork"] = {"title": record['245']['a']}
+                #requestdict["Request"]["identityInformation"]["identity"]["titleOfWork"] = {"title": record['245']['a']}
+                titleOfWorkTitle.append(record['245']['a'])
                 if record['245']['b']:
-                    requestdict["Request"]["identityInformation"]["identity"]["resource"]["titleOfWork"]["subtitle"] = \
-                    record['245']['b']
+                    #requestdict["Request"]["identityInformation"]["identity"]["resource"]["titleOfWork"]["subtitle"] = record['245']['b']
+                    titleOfWorkSubtitle.append(record['245']['b'])
             elif field.tag == '260':
                 if record['260']['b']:
-                    requestdict["Request"]["identityInformation"]["identity"]["resource"]["titleOfWork"]["publisher"] = \
-                    record['260']['b']
+                    #requestdict["Request"]["identityInformation"]["identity"]["resource"]["titleOfWork"]["publisher"] = record['260']['b']
+                    titleOfWorkPublisher.append(record['260']['b'])
                 if record['260']['c']:
-                    requestdict["Request"]["identityInformation"]["identity"]["resource"]["titleOfWork"]["date"] = \
-                    record['245']['c']
+                    #requestdict["Request"]["identityInformation"]["identity"]["resource"]["titleOfWork"]["date"] = record['245']['c']
+                    titleOfWorkDate.append(record['245']['c'])
             elif field.tag == '336':
-                requestdict["Request"]["identityInformation"]["identity"]["resource"]["creationClass"] = record['336']['a']
+                #requestdict["Request"]["identityInformation"]["identity"]["resource"]["creationClass"] = record['336']['a']
+                creationClass.append(record['336']['a'])
 
-
+        """
         if not requestdict["Request"]["identityInformation"]["identity"]["personOrFiction"]["personalName"]["name"]:
             del requestdict["Request"]["identityInformation"]["identity"]["personOrFiction"]
         if not requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationName"]["mainName"]:
@@ -367,5 +416,78 @@ class MARC21ToISNIMARC:
             del requestdict["Request"]["identityInformation"]["identity"]["organisation"]["organisationNameVariant"]
         if not requestdict["Request"]["identityInformation"]["externalInformation"]["source"]:
             del requestdict["Request"]["identityInformation"]["externalInformation"]
+        """
 
-        return requestdict
+        requestxml = ET.Element("Request")
+        idinfoxml = ET.SubElement(requestxml, "identityInformation")
+        identityxml = ET.SubElement(idinfoxml, "identity")
+        requestoridxml = ET.SubElement(idinfoxml, "requestorIdentifierOfIdentity")
+
+        if requestIdentifier:
+            for c in list(set(requestIdentifier)):
+                identifier = ET.SubElement(requestoridxml, "identifier")
+                identifier.text = c
+
+        if otherIdentifier:
+            otheridentifierxml = ET.SubElement(idinfoxml, "otherIdentityOfIdentity")
+            for c in list(set(otherIdentifier)):
+                otherid = ET.SubElement(otheridentifierxml, "identifier")
+                otherid.text = c
+
+        if personalName:
+            personorfictionxml = ET.SubElement(identityxml, "personOrFiction")
+            personalNamexml = ET.SubElement(personorfictionxml, "personalName")
+            namexml = ET.SubElement(personalNamexml, "name")
+            namexml.text = list(set(personalName))[0]
+
+        if organisationMainNames:
+            organisationxml =  ET.SubElement(identityxml, "organisation")
+            orgnamexml = ET.SubElement(organisationxml, "organisationName")
+            mainnamexml = ET.SubElement(orgnamexml, "mainName")
+            mainnamexml.text = list(set(organisationMainNames))[0]
+
+        if organisationSubdivNames:
+            for c in list(set(organisationSubdivNames)):
+                subdivnamexml = ET.SubElement(orgnamexml, "subdivisionName")
+                subdivnamexml.text = c
+
+        if organisationTypes:
+            orgtypexml = ET.SubElement(organisationxml, "organisatioonType")
+            orgtypexml.text = "Other to be defined"
+
+        if organisationNameVariants:
+            for c in list(set(organisationNameVariants)):
+                orgnamevariantxml = ET.SubElement(organisationxml, "organisationNameVariant")
+                orgnamevariantnamexml = ET.SubElement(orgnamevariantxml, "mainName")
+                orgnamevariantnamexml.text = c
+
+        return requestxml
+
+    def makeOnvXML(self, listofvariants):
+        """
+        Using ET, make XML for repeatable variant field
+        :param listofvariants:
+        :return:
+        """
+        request = ET.Element("Request")
+        idinfo = ET.SubElement(request, "identityInformation")
+        org = ET.SubElement(idinfo, "organisation")
+
+        for variant in listofvariants:
+            onv = ET.SubElement(org, "organisationNameVariant")
+            mainName = ET.SubElement(onv, "mainName")
+
+            mainName.text = variant
+
+        tree = ET.ElementTree(request)
+        return tree
+
+    def prettify(self, elem):
+        """
+        Return a pretty-printed XML string for the Element
+        :param elem:
+        :return:
+        """
+        rough_string = ET.tostring(elem, 'utf-8')
+        reparsed = parseString(rough_string)
+        return reparsed.toprettyxml(indent="\t")
