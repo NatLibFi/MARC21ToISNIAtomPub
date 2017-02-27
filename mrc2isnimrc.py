@@ -108,8 +108,6 @@ class MARC21ToISNIMARC:
                     continue
                 logging.info("Converting record.")
                 r = self.makeIsniRequest(record)
-                # xml = dicttoxml(r, root=False, attr_type=False)
-
                 xml = parseString(ET.tostring(r, "utf-8")).toprettyxml()
                 if i % dirmax == 0:
                     dirinc += 1
@@ -292,11 +290,8 @@ class MARC21ToISNIMARC:
 
     def makeIsniRequest(self, record):
 
-        organisationNameVariants = []
-        organisationMainNames = []
         requestIdentifier = []
         personalName = []
-        organisationSubdivNames = []
         organisationTypes = []
         usageDateFrom = []
         usageDateTo = []
@@ -315,6 +310,9 @@ class MARC21ToISNIMARC:
         creationClass = []
         otherIdentifier = []
 
+        organisationVariants = []
+        organisationMains = []
+
         for field in record.fields:
             if field.tag == '024':
                 otherIdentifier.append(record['024']['a'])
@@ -325,9 +323,12 @@ class MARC21ToISNIMARC:
             elif field.tag == '001':
                 requestIdentifier.append("(FI-ASTERI-N)"+record['001'].data)
             elif field.tag == '110':
-                organisationMainNames.append(record['110']['a'])
+                #organisationMainNames.append(record['110']['a'])
+                org = {"mainName": record['110']['a']}
                 if record['110']['b']:
-                    organisationSubdivNames.append(record['110']['b'])
+                    #organisationMainSubdivNames.append(record['110']['b'])
+                    org.update({"subdivisionName": record['110']['b']})
+                organisationMains.append(org)
             elif field.tag == '368':
                 organisationTypes.append(record['368']['a'])
             elif field.tag == '046':
@@ -341,14 +342,16 @@ class MARC21ToISNIMARC:
                     usageDateTo.append(record['046']['r'])
             elif field.tag == '410':
                 for t in record.get_fields("410"):
-                    organisationNameVariants.append(t['a'])
+                    org = {"mainName": t['a']}
                     if t['b']:
-                        organisationSubdivNames.append(t['b'])
+                        org.update({"subdivisionName": t['b']})
+                    organisationVariants.append(org)
             elif field.tag == '411':
                 for t in record.get_fields("411"):
-                    organisationNameVariants.append(t['a'])
+                    org = {"mainName": t['a']}
                     if t['b']:
-                        organisationSubdivNames.append(t['b'])
+                        org.update({"subdivisionName": t['b']})
+                    organisationVariants.append(org)
             elif field.tag == '370':
                 if record['370']['e']:
                     locationCountryCode.append(record['370']['e'])
@@ -400,22 +403,15 @@ class MARC21ToISNIMARC:
             namexml = ET.SubElement(personalNamexml, "name")
             namexml.text = list(set(personalName))[0]
 
-        if organisationMainNames:
+        if organisationMains:
             organisationxml = ET.SubElement(identityxml, "organisation")
             orgnamexml = ET.SubElement(organisationxml, "organisationName")
             mainnamexml = ET.SubElement(orgnamexml, "mainName")
-            mainnamexml.text = list(set(organisationMainNames))[0]
-
-        if organisationSubdivNames:
-            for c in list(set(organisationSubdivNames)):
-                try:
+            for c in organisationMains:
+                mainnamexml.text = c['mainName']
+                if "subdivisionName" in c:
                     subdivnamexml = ET.SubElement(orgnamexml, "subdivisionName")
-                    subdivnamexml.text = c
-                except UnboundLocalError:
-                    organisationxml = ET.SubElement(identityxml, "organisation")
-                    orgnamexml = ET.SubElement(organisationxml, "organisationName")
-                    subdivnamexml = ET.SubElement(orgnamexml, "subdivisionName")
-                    subdivnamexml.text = c
+                    subdivnamexml.text = c['subdivisionName']
 
         if organisationTypes:
             try:
@@ -426,17 +422,23 @@ class MARC21ToISNIMARC:
                 orgtypexml = ET.SubElement(organisationxml, "organisatioonType")
                 orgtypexml.text = "Other to be defined"
 
-        if organisationNameVariants:
-            for c in list(set(organisationNameVariants)):
+        if organisationVariants:
+            for c in organisationVariants:
                 try:
                     orgnamevariantxml = ET.SubElement(organisationxml, "organisationNameVariant")
                     orgnamevariantnamexml = ET.SubElement(orgnamevariantxml, "mainName")
-                    orgnamevariantnamexml.text = c
+                    orgnamevariantnamexml.text = c['mainName']
+                    if "subdivisionName" in c:
+                        subdivnamexml = ET.SubElement(orgnamevariantxml, "subdivisionName")
+                        subdivnamexml.text = c['subdivisionName']
                 except UnboundLocalError:
                     organisationxml = ET.SubElement(identityxml, "organisation")
                     orgnamevariantxml = ET.SubElement(organisationxml, "organisationNameVariant")
                     orgnamevariantnamexml = ET.SubElement(orgnamevariantxml, "mainName")
-                    orgnamevariantnamexml.text = c
+                    orgnamevariantnamexml.text = c['mainName']
+                    if "subdivisionName" in c:
+                        subdivnamexml = ET.SubElement(orgnamevariantxml, "subdivisionName")
+                        subdivnamexml.text = c['subdivisionName']
 
         return requestxml
 
@@ -449,3 +451,8 @@ class MARC21ToISNIMARC:
         rough_string = ET.tostring(elem, 'utf-8')
         reparsed = parseString(rough_string)
         return reparsed.toprettyxml(indent="\t")
+
+    def rmdup(self, seq):
+        seen = set()
+        seen_add = seen.add
+        return [x for x in seq if not (x in seen or seen_add(x))]
