@@ -102,7 +102,7 @@ class MARC21ToISNIMARC:
                 os.mkdir(dirname)
             reader = MARCReader(fh, force_utf8=True, to_unicode=True)
             i = 1
-            dirinc = 1
+            dirinc = 0
             for record in reader:
                 if any(f.tag == self.skip for f in record.fields):
                     continue
@@ -111,10 +111,10 @@ class MARC21ToISNIMARC:
                 xml = parseString(ET.tostring(r, "utf-8")).toprettyxml()
                 if i % dirmax == 0:
                     dirinc += 1
-                subdir = dirname + "/" + str(dirinc)
+                subdir = dirname + "/" + str(dirinc).zfill(3)
                 if not (os.path.exists(subdir)):
                     os.mkdir(subdir)
-                xmlfile = open(subdir + "/request_" + str(i) + ".xml", 'wb+')
+                xmlfile = open(subdir + "/request_" + str(i).zfill(5) + ".xml", 'wb+')
                 xmlfile.write(bytes(xml, 'UTF-8'))
                 xmlfile.close()
                 i += 1
@@ -313,6 +313,20 @@ class MARC21ToISNIMARC:
         organisationVariants = []
         organisationMains = []
 
+        checkedvariants = False
+
+        for t in record.get_fields("410"):
+            org = {"mainName": t['a']}
+            if t['b']:
+                org.update({"subdivisionName": t['b']})
+            organisationVariants.append(org)
+
+        for t in record.get_fields("411"):
+            org = {"mainName": t['a']}
+            if t['b']:
+                org.update({"subdivisionName": t['b']})
+            organisationVariants.append(org)
+
         for field in record.fields:
             if field.tag == '024':
                 otherIdentifier.append(record['024']['a'])
@@ -341,17 +355,11 @@ class MARC21ToISNIMARC:
                 if record['046']['r']:
                     usageDateTo.append(record['046']['r'])
             elif field.tag == '410':
-                for t in record.get_fields("410"):
-                    org = {"mainName": t['a']}
-                    if t['b']:
-                        org.update({"subdivisionName": t['b']})
-                    organisationVariants.append(org)
+
+                    continue
             elif field.tag == '411':
-                for t in record.get_fields("411"):
-                    org = {"mainName": t['a']}
-                    if t['b']:
-                        org.update({"subdivisionName": t['b']})
-                    organisationVariants.append(org)
+
+                    continue
             elif field.tag == '370':
                 if record['370']['e']:
                     locationCountryCode.append(record['370']['e'])
@@ -451,8 +459,3 @@ class MARC21ToISNIMARC:
         rough_string = ET.tostring(elem, 'utf-8')
         reparsed = parseString(rough_string)
         return reparsed.toprettyxml(indent="\t")
-
-    def rmdup(self, seq):
-        seen = set()
-        seen_add = seen.add
-        return [x for x in seq if not (x in seen or seen_add(x))]
