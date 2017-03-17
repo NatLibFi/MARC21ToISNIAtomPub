@@ -388,11 +388,14 @@ class MARC21ToISNIMARC:
                     titleOfWorkDate.append(record['245']['c'])
             elif field.tag == '336':
                 creationClass.append(record['336']['a'])
+            elif field.tag == '510':
+                print(record)
 
         requestxml = ET.Element("Request")
         idinfoxml = ET.SubElement(requestxml, "identityInformation")
         identityxml = ET.SubElement(idinfoxml, "identity")
         requestoridxml = ET.SubElement(idinfoxml, "requestorIdentifierOfIdentity")
+        organisationxml = ET.SubElement(identityxml, "organisation")
 
         if requestIdentifier:
             for c in list(set(requestIdentifier)):
@@ -412,23 +415,35 @@ class MARC21ToISNIMARC:
             namexml.text = list(set(personalName))[0]
 
         if organisationMains:
-            organisationxml = ET.SubElement(identityxml, "organisation")
             orgnamexml = ET.SubElement(organisationxml, "organisationName")
             mainnamexml = ET.SubElement(orgnamexml, "mainName")
+
             for c in organisationMains:
                 mainnamexml.text = c['mainName']
                 if "subdivisionName" in c:
                     subdivnamexml = ET.SubElement(orgnamexml, "subdivisionName")
                     subdivnamexml.text = c['subdivisionName']
 
-        if organisationTypes:
-            try:
-                orgtypexml = ET.SubElement(organisationxml, "organisatioonType")
-                orgtypexml.text = "Other to be defined"
-            except UnboundLocalError:
-                organisationxml = ET.SubElement(identityxml, "organisation")
-                orgtypexml = ET.SubElement(organisationxml, "organisatioonType")
-                orgtypexml.text = "Other to be defined"
+        if locationCountryCode:
+            locationxml = ET.SubElement(organisationxml, "location")
+            countrycodexml = ET.SubElement(locationxml, "countryCode")
+            for c in list(set(locationCountryCode)):
+                country, city = c.split(",")[1].strip().lower() if "," in c else c.lower(), c.split(",")[0].strip() if "," in c else None
+                isocode = self.converttoiso(country)
+                countrycodexml.text = isocode
+                if city:
+                    cityxml = ET.SubElement(locationxml, "city")
+                    cityxml.text = city
+
+        #if organisationTypes:
+         #   for c in organisationTypes:
+          #      try:
+           #         orgtypexml = ET.SubElement(organisationxml, "organisationType")
+            #        orgtypexml.text = c
+             #   except UnboundLocalError:
+              #      organisationxml = ET.SubElement(identityxml, "organisation")
+               #     orgtypexml = ET.SubElement(organisationxml, "organisationType")
+                #    orgtypexml.text = c
 
         if organisationVariants:
             for c in organisationVariants:
@@ -449,6 +464,28 @@ class MARC21ToISNIMARC:
                         subdivnamexml.text = c['subdivisionName']
 
         return requestxml
+
+    def converttoiso(self, country):
+        convertdict = {"afganistan": "AF", "ahvenanmaa": "AX", "alankomaat": "NL", "albania": "AL", "algeria": "DZ", "andorra": "AD",
+                       "angola": "AO", "arabiemiirikunnat": "AE", "argentiina": "AR", "armenia": "AM", "australia": "AU", "bahrain": "BH",
+                       "bahama": "BS", "bangladesh": "BD", "barbados": "BB", "belgia": "BE", "belize": "BZ", "bolivia": "BO", "bosnia ja hertsegovina": "BA",
+                       "brasilia": "BR", "bulgaria": "BG", "caymansaaret": "KY", "chile": "CL", "ecuador": "EC", "egypti": "EG", "espanja": "ES",
+                       "etiopia": "ET", "etelä-afrikka": "ZA", "filippiinit": "PH", "georgia": "GE", "hongkong": "HK", "indonesia": "ID",
+                       "intia": "IN", "irak": "IQ", "iran": "IR", "irlanti": "IE", "islanti": "IS", "israel": "IL", "italia": "IT",
+                       "itävalta": "AT", "japani": "JP", "kazakstan": "KZ", "kenia": "KE", "kiina": "CN", "kolumbia": "CO",
+                       "kreikka": "GR", "kroatia": "HR", "kuuba": "CU", "kuwait": "KW", "kypros": "CY", "latvia": "LV",
+                       "libanon": "LB", "libya": "LY", "liecthenstein": "LI", "liettua": "LT", "luxemburg": "LU", "makedonia": "MK",
+                       "malediivit": "MV", "malesia": "MY", "malta": "MT", "marokko": "MA", "meksiko": "MX", "moldova": "MD",
+                       "monaco": "MC", "mongolia": "MN", "montenegro": "ME", "norja": "NO", "norsunluurannikko": "CI",
+                       "pakistan": "PK", "panama": "PA", "paraguay": "PY", "peru": "PE", "portugali": "PT", "puerto rico": "PR",
+                       "puola": "PL", "qatar": "QA", "ranska": "FR", "romania": "RO", "ruotsi": "SE", "saksa": "DE", "san marino": "SM",
+                       "saudi-arabia": "SA", "serbia": "RS", "singapore": "SG", "slovakia": "SK", "slovenia": "SI", "suomi": "FI",
+                       "sveitsi": "CH", "syyria": "SY", "taiwan": "TW", "tanska": "DK", "thaimaa": "TH", "tšekki": "CZ", "tunisia": "TN",
+                       "turkki": "TR", "ukraina": "UA", "unkari": "HU", "uruguay": "UY", "uusi-seelanti": "NZ", "uzbekistan": "UZ",
+                       "valko-venäjä": "BY", "vatikaanivaltio": "VA", "venezuela": "VE", "venäjä": "RU", "vietnam": "VN", "viro": "EE",
+                       "yhdistynyt kuningaskunta": "UK", "yhdysvallat": "US"}
+        code = convertdict.setdefault(country, "FI")
+        return code
 
     def prettify(self, elem):
         """
