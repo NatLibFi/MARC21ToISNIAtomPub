@@ -313,7 +313,7 @@ class MARC21ToISNIMARC:
         organisationVariants = []
         organisationMains = []
 
-        checkedvariants = False
+        relations = []
 
         for t in record.get_fields("410"):
             org = {"mainName": t['a']}
@@ -326,6 +326,19 @@ class MARC21ToISNIMARC:
             if t['b']:
                 org.update({"subdivisionName": t['b']})
             organisationVariants.append(org)
+
+        for t in record.get_fields("510"):
+            isRelated = {}
+            if t['w'] is "a":
+                isRelated = {"relationType": "supersedes", "identityType": "organisation", "noISNI": {"PPN": "", "organisationName": t['a']}}
+                if t['b']:
+                    isRelated.update({"noISNI": {"PPN": "", "organisationName": t['a'], "subDivisionName": t['b']}})
+                relations.append(isRelated)
+            elif t['w'] is "b":
+                isRelated = {"relationType": "isSupersededBy", "identityType": "organisation", "noISNI": {"PPN": "", "organisationName": t['a']}}
+                if t['b']:
+                    isRelated.update({"noISNI": {"PPN": "", "organisationName": t['a'], "subDivisionName": t['b']}})
+                relations.append(isRelated)
 
         for field in record.fields:
             if field.tag == '024':
@@ -354,12 +367,6 @@ class MARC21ToISNIMARC:
                     usageDateFrom.append(record['046']['q'])
                 if record['046']['r']:
                     usageDateTo.append(record['046']['r'])
-            elif field.tag == '410':
-
-                    continue
-            elif field.tag == '411':
-
-                    continue
             elif field.tag == '370':
                 if record['370']['e']:
                     locationCountryCode.append(record['370']['e'])
@@ -388,8 +395,6 @@ class MARC21ToISNIMARC:
                     titleOfWorkDate.append(record['245']['c'])
             elif field.tag == '336':
                 creationClass.append(record['336']['a'])
-            elif field.tag == '510':
-                print(record)
 
         requestxml = ET.Element("Request")
         idinfoxml = ET.SubElement(requestxml, "identityInformation")
@@ -434,6 +439,23 @@ class MARC21ToISNIMARC:
                 if city:
                     cityxml = ET.SubElement(locationxml, "city")
                     cityxml.text = city
+
+        if relations:
+            for c in relations:
+                isrelatedxml = ET.SubElement(requestxml, "isRelated")
+                idtypexml = ET.SubElement(isrelatedxml, "identityType")
+                idtypexml.text = c['identityType']
+                relationtypexml = ET.SubElement(isrelatedxml, "relationType")
+                relationtypexml.text = c['relationType']
+                noisnixml = ET.SubElement(isrelatedxml, "noISNI")
+                ppnxml = ET.SubElement(noisnixml, "PPN")
+                ppnxml.text = ""
+                relorgnamexml = ET.SubElement(noisnixml, "organisationName")
+                relorgmainxml = ET.SubElement(relorgnamexml, "mainName")
+                relorgmainxml.text = c['noISNI']['organisationName']
+                if c['noISNI'].get('subDivisionName') is not None:
+                    subdivnamexml = ET.SubElement(relorgnamexml, "subdivisionName")
+                    subdivnamexml.text = c['noISNI']['subDivisionName']
 
         #if organisationTypes:
          #   for c in organisationTypes:
