@@ -4,6 +4,7 @@ import sys, os, pprint
 from dicttoxml import dicttoxml
 from xml.dom.minidom import parseString
 import xml.etree.cElementTree as ET
+import random
 
 
 class MARC21ToISNIMARC:
@@ -61,6 +62,32 @@ class MARC21ToISNIMARC:
                 r = self.makeRecord(record)
                 out.write(r.as_marc())
                 i += 1
+            out.close()
+            print("\rConversion done.")
+
+    def takerandomsample(self, outfile, n):
+        """
+
+        :param outfile:
+        :param n:
+        :return:
+        """
+        logging.info("Starting mrc to mrc random sample conversion...")
+
+        with open(self.infile, 'rb') as fh:
+            reader = MARCReader(fh, force_utf8=True, to_unicode=True)
+            out = open(outfile, 'wb')
+            my_randoms = random.sample(range(159367), n*4)
+            for i, record in enumerate(reader):
+                if any(f.tag == self.skip for f in record.fields):
+                    continue
+                if i in my_randoms:
+                    logging.info("Converting record.")
+                    sys.stdout.write('.')
+                    sys.stdout.flush()
+                    if i % 5 == 0:
+                        print("\rConverting", end="")
+                    out.write(record.as_marc())
             out.close()
             print("\rConversion done.")
 
@@ -448,8 +475,8 @@ class MARC21ToISNIMARC:
                 relationtypexml = ET.SubElement(isrelatedxml, "relationType")
                 relationtypexml.text = c['relationType']
                 noisnixml = ET.SubElement(isrelatedxml, "noISNI")
-                ppnxml = ET.SubElement(noisnixml, "PPN")
-                ppnxml.text = ""
+                # ppnxml = ET.SubElement(noisnixml, "PPN")
+                # ppnxml.text = ""
                 relorgnamexml = ET.SubElement(noisnixml, "organisationName")
                 relorgmainxml = ET.SubElement(relorgnamexml, "mainName")
                 relorgmainxml.text = c['noISNI']['organisationName']
