@@ -93,3 +93,7 @@ ENV/
 test/
 
 workwork.txt
+
+main.py
+
+request.xml
