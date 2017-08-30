@@ -131,6 +131,10 @@ class MARC21ToISNIMARC:
             reader = MARCReader(fh, force_utf8=True, to_unicode=True)
             i = 1
             dirinc = 0
+            xml = ""
+            if self.concat:
+                with open(dirname+"/concat_request.xml", 'ab+') as concat_file:
+                    concat_file.write(bytes("<?xml version=\"1.0\" ?>\n<root>\n", "UTF-8"))
             for record in reader:
                 if any(f.tag == self.skip for f in record.fields):
                     continue
@@ -143,16 +147,20 @@ class MARC21ToISNIMARC:
                 if not (os.path.exists(subdir)) and not self.concat:
                     os.mkdir(subdir)
                 if self.concat:
-                    if i is not 1:
-                        xml = xml.replace("<?xml version=\"1.0\" ?>", "")
+                    xml = xml.replace("<?xml version=\"1.0\" ?>", "")
                     xmlfile = open(dirname+"/concat_request.xml", 'ab+')
                     xmlfile.write(bytes(xml, 'UTF-8'))
+                    xmlfile.flush()
                     i += 1
                 else:
                     xmlfile = open(subdir + "/request_" + str(i).zfill(5) + ".xml", 'wb+')
                     xmlfile.write(bytes(xml, 'UTF-8'))
                     xmlfile.close()
                     i += 1
+
+            if self.concat:
+                with open(dirname+"/concat_request.xml", 'ab+') as concat_file:
+                    concat_file.write(bytes("</root>", "UTF-8"))
 
             print("Conversion done")
 
