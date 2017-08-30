@@ -113,13 +113,14 @@ class MARC21ToISNIMARC:
             out.close()
             print("\rConversion done.")
 
-    def convert2ISNIRequestXML(self, dirname, dirmax=20):
+    def convert2ISNIRequestXML(self, dirname, dirmax=20, concat=False):
         """
         Converts MARC21 to ISNI XML Requests. Creates directory dirname, and creates XML Request files into the folder.
         dirmax default is 20, so it makes 20 request xml files per folder before creating a new one.
         :param dirname:
         :param dirmax:
         """
+        self.concat = concat
         if self.skip:
             print("Skipping records with %s field" % self.skip)
         logging.info("Starting mrc to isni request conversion...")
@@ -139,12 +140,19 @@ class MARC21ToISNIMARC:
                 if i % dirmax == 0:
                     dirinc += 1
                 subdir = dirname + "/" + str(dirinc).zfill(3)
-                if not (os.path.exists(subdir)):
+                if not (os.path.exists(subdir)) and not self.concat:
                     os.mkdir(subdir)
-                xmlfile = open(subdir + "/request_" + str(i).zfill(5) + ".xml", 'wb+')
-                xmlfile.write(bytes(xml, 'UTF-8'))
-                xmlfile.close()
-                i += 1
+                if self.concat:
+                    if i is not 1:
+                        xml = xml.replace("<?xml version=\"1.0\" ?>", "")
+                    xmlfile = open(dirname+"/concat_request.xml", 'ab+')
+                    xmlfile.write(bytes(xml, 'UTF-8'))
+                    i += 1
+                else:
+                    xmlfile = open(subdir + "/request_" + str(i).zfill(5) + ".xml", 'wb+')
+                    xmlfile.write(bytes(xml, 'UTF-8'))
+                    xmlfile.close()
+                    i += 1
 
             print("Conversion done")
 
@@ -306,7 +314,6 @@ class MARC21ToISNIMARC:
                     newrecord.add_field(
                         Field(tag='700', indicators=['\\', '\\'], subfields=['c', record['100']['c']], marctype="isni"))
 
-
             else:
                 newrecord.add_field(field)
 
@@ -336,6 +343,9 @@ class MARC21ToISNIMARC:
         titleOfWorkDate = []
         creationClass = []
         otherIdentifier = []
+        birthDate = []
+        deathDate = []
+        personalNameVariant = []
 
         organisationVariants = []
         organisationMains = []
@@ -366,6 +376,26 @@ class MARC21ToISNIMARC:
                 if t['b']:
                     isRelated.update({"noISNI": {"PPN": "", "organisationName": t['a'], "subDivisionName": t['b']}})
                 relations.append(isRelated)
+            elif t['w'] is "t":
+                isRelated = {"relationType": "isUnitOf", "identityType": "organisation", "noISNI": {"PPN": "", "organisationName": t['a']}}
+                if t['b']:
+                    isRelated.update({"noISNI": {"PPN": "", "organisationName": t['a'], "subDivisionName": t['b']}})
+                relations.append(isRelated)
+
+        for t in record.get_fields("400"):
+            forename = ""
+            if "," in t['a']:
+                surname, forename = t['a'].split(',', 1)
+                surname = surname.replace(",", "")
+                forename = forename.replace(",", "")
+                surname = surname.strip()
+                forename = forename.strip()
+            else:
+                surname = t['a']
+            pvariant = {"nameUse": "public", "surname": surname}
+            if forename:
+                pvariant.update({"forename": forename})
+            personalNameVariant.append(pvariant)
 
         for field in record.fields:
             if field.tag == '024':
@@ -394,6 +424,10 @@ class MARC21ToISNIMARC:
                     usageDateFrom.append(record['046']['q'])
                 if record['046']['r']:
                     usageDateTo.append(record['046']['r'])
+                if record['046']['f']:
+                    birthDate.append(record['046']['f'])
+                elif record['046']['g']:
+                    deathDate.append(record['046']['g'])
             elif field.tag == '370':
                 if record['370']['e']:
                     locationCountryCode.append(record['370']['e'])
@@ -423,11 +457,14 @@ class MARC21ToISNIMARC:
             elif field.tag == '336':
                 creationClass.append(record['336']['a'])
 
+
         requestxml = ET.Element("Request")
         idinfoxml = ET.SubElement(requestxml, "identityInformation")
         identityxml = ET.SubElement(idinfoxml, "identity")
         requestoridxml = ET.SubElement(idinfoxml, "requestorIdentifierOfIdentity")
-        organisationxml = ET.SubElement(identityxml, "organisation")
+        #If organisations are skipped, we will not create xml subelement for them.
+        if self.skip != "110" :
+            organisationxml = ET.SubElement(identityxml, "organisation")
 
         if requestIdentifier:
             for c in list(set(requestIdentifier)):
@@ -445,6 +482,14 @@ class MARC21ToISNIMARC:
             personalNamexml = ET.SubElement(personorfictionxml, "personalName")
             namexml = ET.SubElement(personalNamexml, "name")
             namexml.text = list(set(personalName))[0]
+            if birthDate:
+                for c in birthDate:
+                    birthdatexml = ET.SubElement(personorfictionxml, "birthDate")
+                    birthdatexml.text = c
+            if deathDate:
+                for c in deathDate:
+                    deathdatexml = ET.SubElement(personorfictionxml, "deathDate")
+                    deathdatexml.text = c
 
         if organisationMains:
             orgnamexml = ET.SubElement(organisationxml, "organisationName")
@@ -456,7 +501,7 @@ class MARC21ToISNIMARC:
                     subdivnamexml = ET.SubElement(orgnamexml, "subdivisionName")
                     subdivnamexml.text = c['subdivisionName']
 
-        if locationCountryCode:
+        if locationCountryCode and self.skip != '110':
             locationxml = ET.SubElement(organisationxml, "location")
             countrycodexml = ET.SubElement(locationxml, "countryCode")
             for c in list(set(locationCountryCode)):
@@ -511,6 +556,28 @@ class MARC21ToISNIMARC:
                     if "subdivisionName" in c:
                         subdivnamexml = ET.SubElement(orgnamevariantxml, "subdivisionName")
                         subdivnamexml.text = c['subdivisionName']
+
+        if personalNameVariant:
+            for c in personalNameVariant:
+                try:
+                    personnamevariantxml = ET.SubElement(personorfictionxml, "personalNameVariant")
+                    personnamevariantsurname = ET.SubElement(personnamevariantxml, "surname")
+                    personnamevariantsurname.text = c['surname']
+                    personnamevariantuse = ET.SubElement(personnamevariantxml, "nameUse")
+                    personnamevariantuse.text = c['nameUse']
+                    if "forename" in c:
+                        personnamevariantforename = ET.SubElement(personnamevariantxml, "forename")
+                        personnamevariantforename.text = c['forename']
+                except UnboundLocalError:
+                    personorfictionxml = ET.SubElement(identityxml, "personOrFiction")
+                    personnamevariantxml = ET.SubElement(personorfictionxml, "personalNameVariant")
+                    personnamevariantsurname = ET.SubElement(personnamevariantxml, "surname")
+                    personnamevariantsurname.text = c['surname']
+                    personnamevariantuse = ET.SubElement(personnamevariantxml, "nameUse")
+                    personnamevariantuse.text = c['nameUse']
+                    if "forename" in c:
+                        personnamevariantforename = ET.SubElement(personnamevariantxml, "forename")
+                        personnamevariantforename.text = c['forename']
 
         return requestxml
 
