@@ -9,7 +9,7 @@ from mrc2isnimrc import MARC21ToISNIMARC
 def main():
 
     # Initialize the converter with the marc file and default country code FI
-    converter = MARC21ToISNIMARC("my_marc_file.mrc")
+    converter = MARC21ToISNIMARC("my_marc_file.mrc", "FI")
 
     # Give the output filename and the size of the sample
     converter.takerandomsample("my_random_sample.mrc", 1000)
