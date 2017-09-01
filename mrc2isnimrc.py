@@ -354,6 +354,8 @@ class MARC21ToISNIMARC:
         birthDate = []
         deathDate = []
         personalNameVariant = []
+        organisationMainSubdivNames = []
+        organisationVariantSubdivNames = []
 
         organisationVariants = []
         organisationMains = []
@@ -363,13 +365,21 @@ class MARC21ToISNIMARC:
         for t in record.get_fields("410"):
             org = {"mainName": t['a']}
             if t['b']:
-                org.update({"subdivisionName": t['b']})
+                subdivisions = []
+                for index, s in enumerate(t.subfields):
+                    if s is 'b':
+                        subdivisions.append(t.subfields[index+1])
+                org.update({"subdivisionName": subdivisions})
             organisationVariants.append(org)
 
         for t in record.get_fields("411"):
             org = {"mainName": t['a']}
             if t['b']:
-                org.update({"subdivisionName": t['b']})
+                subdivisions = []
+                for index, s in enumerate(t.subfields):
+                    if s is 'b':
+                        subdivisions.append(t.subfields[index + 1])
+                org.update({"subdivisionName": subdivisions})
             organisationVariants.append(org)
 
         for t in record.get_fields("510"):
@@ -415,11 +425,11 @@ class MARC21ToISNIMARC:
             elif field.tag == '001':
                 requestIdentifier.append("(FI-ASTERI-N)"+record['001'].data)
             elif field.tag == '110':
-                #organisationMainNames.append(record['110']['a'])
                 org = {"mainName": record['110']['a']}
                 if record['110']['b']:
-                    #organisationMainSubdivNames.append(record['110']['b'])
-                    org.update({"subdivisionName": record['110']['b']})
+                    for index, subfield in enumerate(record['110'].subfields):
+                        if subfield is 'b':
+                            organisationMainSubdivNames.append(record['110'].subfields[index+1])
                 organisationMains.append(org)
             elif field.tag == '368':
                 organisationTypes.append(record['368']['a'])
@@ -505,9 +515,10 @@ class MARC21ToISNIMARC:
 
             for c in organisationMains:
                 mainnamexml.text = c['mainName']
-                if "subdivisionName" in c:
-                    subdivnamexml = ET.SubElement(orgnamexml, "subdivisionName")
-                    subdivnamexml.text = c['subdivisionName']
+                if organisationMainSubdivNames:
+                    for t in organisationMainSubdivNames:
+                        subdivnamexml = ET.SubElement(orgnamexml, "subdivisionName")
+                        subdivnamexml.text = t
 
         if locationCountryCode and self.skip != '110':
             locationxml = ET.SubElement(organisationxml, "location")
@@ -554,16 +565,18 @@ class MARC21ToISNIMARC:
                     orgnamevariantnamexml = ET.SubElement(orgnamevariantxml, "mainName")
                     orgnamevariantnamexml.text = c['mainName']
                     if "subdivisionName" in c:
-                        subdivnamexml = ET.SubElement(orgnamevariantxml, "subdivisionName")
-                        subdivnamexml.text = c['subdivisionName']
+                        for s in c['subdivisionName']:
+                            subdivnamexml = ET.SubElement(orgnamevariantxml, "subdivisionName")
+                            subdivnamexml.text = s
                 except UnboundLocalError:
                     organisationxml = ET.SubElement(identityxml, "organisation")
                     orgnamevariantxml = ET.SubElement(organisationxml, "organisationNameVariant")
                     orgnamevariantnamexml = ET.SubElement(orgnamevariantxml, "mainName")
                     orgnamevariantnamexml.text = c['mainName']
                     if "subdivisionName" in c:
-                        subdivnamexml = ET.SubElement(orgnamevariantxml, "subdivisionName")
-                        subdivnamexml.text = c['subdivisionName']
+                        for s in c['subdivisionName']:
+                            subdivnamexml = ET.SubElement(orgnamevariantxml, "subdivisionName")
+                            subdivnamexml.text = s
 
         if personalNameVariant:
             for c in personalNameVariant:
