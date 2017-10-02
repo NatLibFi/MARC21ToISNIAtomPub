@@ -402,6 +402,7 @@ class MARC21ToISNIMARC:
 
         for t in record.get_fields("400"):
             forename = ""
+            #Split up personal name variants to surename/forename
             if "," in t['a']:
                 surname, forename = t['a'].split(',', 1)
                 surname = surname.replace(",", "")
@@ -498,8 +499,25 @@ class MARC21ToISNIMARC:
         if personalName:
             personorfictionxml = ET.SubElement(identityxml, "personOrFiction")
             personalNamexml = ET.SubElement(personorfictionxml, "personalName")
-            namexml = ET.SubElement(personalNamexml, "name")
-            namexml.text = list(set(personalName))[0]
+            nameusexml = ET.SubElement(personalNamexml, "nameUse")
+            nameusexml.text = "public"
+            # We need to split up the name into surname/forename, if it's not splittable (i.e. doesn't have a comma separator)
+            # put the whole name into surname field. For clarity this could be done the same way as personalNameVariants
+            if "," in list(set(personalName))[0]:
+                surname, forename = list(set(personalName))[0].split(',', 1)
+                surname = surname.replace(",", "")
+                forename = forename.replace(",", "")
+                surname = surname.strip()
+                forename = forename.strip()
+                surnamexml = ET.SubElement(personalNamexml, "surname")
+                surnamexml.text = surname
+                if forename:
+                    forenamexml = ET.SubElement(personalNamexml, "forename")
+                    forenamexml.text = forename
+            else:
+                surname = list(set(personalName))[0]
+                surnamexml = ET.SubElement(personalNamexml, "surname")
+                surnamexml.text = surname
             if birthDate:
                 for c in birthDate:
                     birthdatexml = ET.SubElement(personorfictionxml, "birthDate")
@@ -548,15 +566,6 @@ class MARC21ToISNIMARC:
                     subdivnamexml = ET.SubElement(relorgnamexml, "subdivisionName")
                     subdivnamexml.text = c['noISNI']['subDivisionName']
 
-        #if organisationTypes:
-         #   for c in organisationTypes:
-          #      try:
-           #         orgtypexml = ET.SubElement(organisationxml, "organisationType")
-            #        orgtypexml.text = c
-             #   except UnboundLocalError:
-              #      organisationxml = ET.SubElement(identityxml, "organisation")
-               #     orgtypexml = ET.SubElement(organisationxml, "organisationType")
-                #    orgtypexml.text = c
 
         if organisationVariants:
             for c in organisationVariants:
