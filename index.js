@@ -12,11 +12,20 @@ var asterimetadata = path.resolve(filePath, "asteri_full.seq");
 
 var reader = new Serializers.AlephSequential.Reader(fs.createReadStream(asterimetadata));
 
-var parseRecords = [];
+var convertedRecords = [];
+
 reader.on('data', function(record){
-    parseRecords.push(record);
+    convertedRecords.push(Serializers.ISO2709.toISO2709(record))
+
 });
 
 reader.on('end', function(){
-   console.log(parseRecords[0])
+   var file = fs.createWriteStream(path.resolve(filePath, "asteri_full.mrc"));
+   file.on('error', function (err) {
+       console.log(err)
+   });
+   convertedRecords.forEach(function(c){
+       file.write(c);
+   });
+   file.end();
 });
