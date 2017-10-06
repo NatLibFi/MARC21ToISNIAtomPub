@@ -4,7 +4,6 @@
 
 var fs = require('fs');
 var Serializers = require('marc-record-serializers');
-var Record = require('marc-record-js');
 var path = require('path');
 
 var filePath = path.resolve(__dirname, 'test/');
