@@ -14,18 +14,15 @@ var reader = new Serializers.AlephSequential.Reader(fs.createReadStream(asterime
 
 var convertedRecords = [];
 
-reader.on('data', function(record){
-    convertedRecords.push(Serializers.ISO2709.toISO2709(record))
+var file = fs.createWriteStream(path.resolve(filePath, "asteri_full.mrc"));
+file.on('error', function (err) {
+   console.log(err)
+});
 
+reader.on('data', function(record){
+    file.write(Serializers.ISO2709.toISO2709(record))
 });
 
 reader.on('end', function(){
-   var file = fs.createWriteStream(path.resolve(filePath, "asteri_full.mrc"));
-   file.on('error', function (err) {
-       console.log(err)
-   });
-   convertedRecords.forEach(function(c){
-       file.write(c);
-   });
    file.end();
 });
