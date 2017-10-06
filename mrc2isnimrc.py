@@ -318,7 +318,7 @@ class MARC21ToISNIMARC:
         #If organisations are skipped, we will not create xml subelement for them.
         if self.skip != "110" :
             organisationxml = ET.SubElement(identityxml, "organisation")
-            #Hard code organisation type and country code, because ISNI requires it
+            # Hard code organisation type and country code, because ISNI requires it
             organisationtypexml = ET.SubElement(organisationxml, "organisationType")
             organisationtypexml.text = "Other to be defined"
             organisationcountryxml = ET.SubElement(organisationxml, "countryCode")
@@ -361,7 +361,7 @@ class MARC21ToISNIMARC:
             if birthDate:
                 for c in birthDate:
                     birthdatexml = ET.SubElement(personorfictionxml, "birthDate")
-                    bd = str(''.join(list(filter(str.isdigit, "n. 1659"))))
+                    bd = str(''.join(list(filter(str.isdigit, c))))
                     birthdatexml.text = bd
             if deathDate:
                 for c in deathDate:
