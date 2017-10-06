@@ -1,4 +1,4 @@
-/* This script is for converting Aleph sequentials to Marc21 binary */
+/* This script is for converting Aleph sequentials to Marc21 */
 
 'use strict';
 
