@@ -12,8 +12,6 @@ var asterimetadata = path.resolve(filePath, "asteri_full.seq");
 
 var reader = new Serializers.AlephSequential.Reader(fs.createReadStream(asterimetadata));
 
-var convertedRecords = [];
-
 var file = fs.createWriteStream(path.resolve(filePath, "asteri_full.mrc"));
 file.on('error', function (err) {
    console.log(err)
