@@ -321,7 +321,8 @@ class MARC21ToISNIMARC:
             # Hard code organisation type and country code, because ISNI requires it
             organisationtypexml = ET.SubElement(organisationxml, "organisationType")
             organisationtypexml.text = "Other to be defined"
-            organisationcountryxml = ET.SubElement(organisationxml, "countryCode")
+            organisationlocationxml = ET.SubElement(organisationxml, "location")
+            organisationcountryxml = ET.SubElement(organisationlocationxml, "countryCode")
             organisationcountryxml.text = "FI"
 
         if requestIdentifier:
