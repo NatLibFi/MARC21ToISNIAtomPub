@@ -395,8 +395,7 @@ class MARC21ToISNIMARC:
         if relations:
             for c in relations:
                 isrelatedxml = ET.SubElement(requestxml, "isRelated")
-                idtypexml = ET.SubElement(isrelatedxml, "identityType")
-                idtypexml.text = c['identityType']
+                isrelatedxml.set("identityType", c['identityType'])
                 relationtypexml = ET.SubElement(isrelatedxml, "relationType")
                 relationtypexml.text = c['relationType']
                 relationnamexml = ET.SubElement(isrelatedxml, "relationName")
