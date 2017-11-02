@@ -162,7 +162,7 @@ class MARC21ToISNIMARC:
                 with open(dirname+"/concat_request.xml", 'ab+') as concat_file:
                     concat_file.write(bytes("</root>", "UTF-8"))
 
-            print("Conversion done")
+            print("Conversion done for {} items".format(i))
 
     def makeIsniRequest(self, record):
 
