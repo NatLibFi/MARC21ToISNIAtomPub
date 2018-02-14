@@ -6,12 +6,17 @@ var fs = require('fs');
 var Serializers = require('marc-record-serializers');
 var path = require('path');
 
+if(process.argv.length < 4){
+    console.log("Give input and output files.")
+    process.exit(1);
+}
+
 var filePath = path.resolve(__dirname, 'test/');
-var asterimetadata = path.resolve(filePath, "asteri_full.seq");
+var asterimetadata = path.resolve(process.argv[2]);
 
 var reader = new Serializers.AlephSequential.Reader(fs.createReadStream(asterimetadata));
 
-var file = fs.createWriteStream(path.resolve(filePath, "asteri_full.mrc"));
+var file = fs.createWriteStream(path.resolve(process.argv[3]));
 file.on('error', function (err) {
    console.log(err)
 });

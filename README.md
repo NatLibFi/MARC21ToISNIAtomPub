@@ -29,4 +29,4 @@ def main():
 #### From aleph seq to mrc
 
 I added a small conversion script to convert aleph sequentials to ISO2709 marc format.
-Install dependencies with `npm install` and run the script with `node --max-old-space-size=4096 index.js`
+Install dependencies with `npm install` and run the script with `node --max-old-space-size=4096 index.js <input .seq file> <output .mrc file>`
