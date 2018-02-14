@@ -11,7 +11,6 @@ if(process.argv.length < 4){
     process.exit(1);
 }
 
-var filePath = path.resolve(__dirname, 'test/');
 var asterimetadata = path.resolve(process.argv[2]);
 
 var reader = new Serializers.AlephSequential.Reader(fs.createReadStream(asterimetadata));
