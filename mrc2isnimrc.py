@@ -5,8 +5,6 @@ from dicttoxml import dicttoxml
 from xml.dom.minidom import parseString
 import xml.etree.cElementTree as ET
 import random
-import math
-
 
 class MARC21ToISNIMARC:
     """
