@@ -5,6 +5,7 @@ from dicttoxml import dicttoxml
 from xml.dom.minidom import parseString
 import xml.etree.cElementTree as ET
 import random
+import math
 
 
 class MARC21ToISNIMARC:
@@ -77,12 +78,16 @@ class MARC21ToISNIMARC:
         with open(self.infile, 'rb') as fh:
             reader = MARCReader(fh, force_utf8=True, to_unicode=True)
             out = open(outfile, 'wb')
-            my_randoms = random.sample(range(159367), n*4)
+            # Calculate quickly a ballpark figure of the record count
+            # filesize / mean record size in bytes
+            filesize = os.fstat(fh.fileno()).st_size
+            recordcount = round(filesize/710.5)
+            print("No. records: {}".format(recordcount))
+            my_randoms = random.sample(range(recordcount), n)
             for i, record in enumerate(reader):
                 if any(f.tag == self.skip for f in record.fields):
                     continue
                 if i in my_randoms:
-                    logging.info("Converting record.")
                     sys.stdout.write('.')
                     sys.stdout.flush()
                     if i % 5 == 0:
@@ -316,7 +321,7 @@ class MARC21ToISNIMARC:
         identityxml = ET.SubElement(idinfoxml, "identity")
         requestoridxml = ET.SubElement(idinfoxml, "requestorIdentifierOfIdentity")
         #If organisations are skipped, we will not create xml subelement for them.
-        if self.skip != "110" :
+        if self.skip != "110":
             organisationxml = ET.SubElement(identityxml, "organisation")
             # Hard code organisation type and country code, because ISNI requires it
             organisationtypexml = ET.SubElement(organisationxml, "organisationType")
