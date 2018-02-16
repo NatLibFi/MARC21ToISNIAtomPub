@@ -389,7 +389,7 @@ class MARC21ToISNIMARC:
             countrycodexml = ET.SubElement(locationxml, "countryCode")
             for c in list(set(locationCountryCode)):
                 country, city = c.split(",")[1].strip().lower() if "," in c else c.lower(), c.split(",")[0].strip() if "," in c else None
-                isocode = self.converttoiso(country)
+                isocode = self.converttoiso(country, self.countrycode)
                 countrycodexml.text = isocode
                 if city:
                     cityxml = ET.SubElement(locationxml, "city")
@@ -454,7 +454,7 @@ class MARC21ToISNIMARC:
         return requestxml
 
     @staticmethod
-    def converttoiso(country):
+    def converttoiso(country, defaultcode):
         convertdict = {"afganistan": "AF", "ahvenanmaa": "AX", "alankomaat": "NL", "albania": "AL", "algeria": "DZ", "andorra": "AD",
                        "angola": "AO", "arabiemiirikunnat": "AE", "argentiina": "AR", "armenia": "AM", "australia": "AU", "bahrain": "BH",
                        "bahama": "BS", "bangladesh": "BD", "barbados": "BB", "belgia": "BE", "belize": "BZ", "bolivia": "BO", "bosnia ja hertsegovina": "BA",
@@ -473,7 +473,7 @@ class MARC21ToISNIMARC:
                        "turkki": "TR", "ukraina": "UA", "unkari": "HU", "uruguay": "UY", "uusi-seelanti": "NZ", "uzbekistan": "UZ",
                        "valko-venäjä": "BY", "vatikaanivaltio": "VA", "venezuela": "VE", "venäjä": "RU", "vietnam": "VN", "viro": "EE",
                        "yhdistynyt kuningaskunta": "UK", "yhdysvallat": "US"}
-        code = convertdict.setdefault(country, "FI")
+        code = convertdict.setdefault(country, defaultcode)
         return code
 
     def prettify(self, elem):
