@@ -80,7 +80,7 @@ class MARC21ToISNIMARC:
             # filesize / mean record size in bytes
             filesize = os.fstat(fh.fileno()).st_size
             recordcount = round(filesize/710.5)
-            print("No. records: {}".format(recordcount))
+            print("Estimated number of records: {}".format(recordcount))
             my_randoms = random.sample(range(recordcount), n)
             for i, record in enumerate(reader):
                 if any(f.tag == self.skip for f in record.fields):
