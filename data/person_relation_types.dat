@@ -1,0 +1,27 @@
+co-author;co-author
+co-performer;co-performer
+pseud;pseud
+real name;real name
+colleague / collaborator;colleague / collaborator
+other identity, same person;other identity, same person
+see also from;see also from
+contact;contact
+undefined or unknown;undefined or unknown
+no relation;no relation
+isMemberOf;isMemberOf
+isAffiliatedWith;isAffiliatedWith
+isRelatedTo;isRelatedTo
+no relation;no relation
+undefined or unknown;undefined or unknown
+Perustaja;isMemberOf
+Perustanut yhteisön;isMemberOf
+Yhteisö;isMemberOf
+Jäsen yhteisössä;isMemberOf
+Jäsen;isMemberOf
+Toinen identiteetti;isMemberOf
+Perustanut yhteisöön;isMemberOf
+Jäsenenä yhteisössä;isMemberOf
+Yhteisö.;isMemberOf
+Jäsen yhtyeessä;isMemberOf
+Toinen identiteetti;pseud
+Todellinen identiteetti;real name

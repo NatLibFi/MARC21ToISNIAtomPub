@@ -1,0 +1,48 @@
+hasMember;hasMember
+hasEmployee;hasEmployee
+isRelatedTo;isRelatedTo
+see also from;see also from
+undefined or unknown;undefined or unknown
+contact;contact
+no relation;no relation
+IsMemberOf;IsMemberOf
+hasMember;hasMember
+isUnitOf;isUnitOf
+hasUnit;hasUnit
+isSupersededBy;isSupersededBy
+supersedes;supersedes
+isAffiliatedWith;isAffiliatedWith
+isRelatedTo;isRelatedTo
+see also from;see also from
+formerName;formerName
+laterName;laterName
+no relation;no relation
+Alayhteisö;hasUnit
+Edeltäjä;supersedes
+Jakautumisesta muodostunut yhteisö;isSupersededBy
+Jakautumisesta muodostunut;isSupersededBy
+Jakautumista edeltänyt yhteisö;supersedes
+Jakautunut yhteisö;supersedes
+Jakautunut;supersedes
+Kattoyhteisö;isUnitOf
+Laajempi emoyhtiö;isUnitOf
+Laajempi jäsenyhteisö;isUnitOf
+Paikallinen tytäryhtiö;
+Perustaja;
+Perustajayhteisö;
+Perustanut yhteisön;
+Seuraaja;
+Sulautunut yhteisö;
+Sulautunut yhteisöön;
+Sulautunut yhtiöön;
+Yhdistymisestä muodostunut yhteisö;
+Yhdistymisestä muodostunut;
+Yhdistynyt yhteisö;
+Yhdistynyt yhteisöön;
+Yhdistynyt;
+Yhteisön jäsenyhteisö;
+Yhteisön laajempi jäsenyhteisö;
+Yhteisön perustama yhteisö;
+Yhteisön perustanut yhteisö;
+Yhteisöön sulautunut;
+Yhteisöön yhdistynyt;

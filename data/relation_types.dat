@@ -1,0 +1,37 @@
+Aiempi nimi;other identity, same person
+Alayhteisö;hasUnit
+Edeltäjä;supersedes
+Jakautumisesta muodostunut yhteisö;
+Jakautumisesta muodostunut;
+Jakautumista edeltänyt yhteisö;
+Jakautunut;
+Jäsen yhteisössä;
+Jäsen;
+Jäsenenä yhteisössä;
+Kattoyhteisö;
+Laajempi emoyhtiö;
+Laajempi jäsenyhteisö;
+Myöhempi nimi;other identity, same person
+Perustaja;isMemberOf
+Perustajayhteisö;
+Perustanut yhteisön;
+Seuraaja;isSupersededBy
+Sulautunut yhteisö;
+Sulautunut yhteisöön;
+Sulautunut yhtiöön;
+Syntymänimi;other identity, same person
+Todellinen identiteetti;real name
+Toinen identiteetti;pseud
+Toinen nimi;
+Yhdistymisestä muodostunut yhteisö;
+Yhdistymisestä muodostunut;
+Yhdistynyt yhteisö;
+Yhdistynyt yhteisöön;
+Yhdistynyt;
+Yhteisö;
+Yhteisön jäsenyhteisö;hasUnit
+Yhteisön perustama yhteisö;
+Yhteisön perustanut yhteisö;
+Yhteisöön sulautunut;
+Yhteisöön yhdistynyt;
+jakautumista edeltänyt yhteisö;supersedes

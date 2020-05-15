@@ -99,3 +99,6 @@ main.py
 request.xml
 
 node_modules/
+
+.log
+.mrc
