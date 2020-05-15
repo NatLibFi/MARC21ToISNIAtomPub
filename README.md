@@ -1,4 +1,4 @@
-# MARC21ToISNIMARC
+# MARC21ToISNIAtomPub
 A tool to transform MARC21 files from MARC21 format into ISNI AtomPub requests. The files contain a lot of temporary code to make a library specific batch load for National Library of Finland.
 
 #### From MARC21 to ISNI AtomPub XML request
