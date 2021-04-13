@@ -6,7 +6,6 @@ import os.path
 """
 Data collected from a record and used in create_xml function:
 
-mergeToISNI (ISNI id from the record, if merge instruction needed)
 identifier (requestor's own identifier)
 identityType = 'personalName' / 'organisationName'
 isRelated = [{'identityType = 'organisation' / 'personOrFiction',
@@ -31,7 +30,8 @@ organisationNameVariant = [organisationName, organisationName]
 organisationType
 languageOfIdentity
 URI 
-countriesAssociated (Note: location of organisation or nationality are possible to add to an ISNI request)
+countryCode (country code of HQ of an ornisation)
+countriesAssociated (Note: country code of nationality are possible to add to an ISNI request)
 resource = [{'title',
              'creationClass',
              'creationRole',
@@ -43,13 +43,17 @@ resource = [{'title',
 }]
 """
 
-def create_name_subelements(root, name_data):     
+def create_name_subelements(root, name_data):    
+    """
+    helper function to create sublements to AtomPub XML
+    """
     for nd in name_data:
         if name_data[nd]:
             create_subelement(root, name_data, nd)
     
 def create_subelement(root, dicta, key):
     """
+    helper function to create sublements to AtomPub XML
     :param root: a parent of the subelement
     :param dicta: dict that contains the name of the subelement as a key
     :param key: key to access the subelement data in dicta
@@ -63,6 +67,11 @@ def create_subelement(root, dicta, key):
         sub_element.text = dicta[key]
 
 def create_resources(root, resource_data):
+    """
+    creates resources element to AtomPub XML
+    :param root: person or organisation element in ISNI AtomPub XML
+    :param resource_data: list of dicts containing title data
+    """
     for r in resource_data:
         resource = ET.SubElement(root, 'resource')
         if r['creationClass']:
@@ -90,18 +99,37 @@ def create_resources(root, resource_data):
                     identifierType = ET.SubElement(identifier, 'identifierType')
                     identifierType.text = identifier_type
 
-def create_xml(record_id, record_data):
+def validate_isni_id(isni_id):
+    """Validate ISNI identifier in case of typos"""
+    isni_id = isni_id.replace(' ', '')
+    if len(isni_id) == 16:
+        return {'identifier': isni_id, 'type': 'ISNI'}
+    elif len(isni_id) == 9:
+        return {'identifier': isni_id, 'type': 'PPN'}
+    else:
+        logging.error('The length of ISNI identifier %s is not 9 or 16 characters'%isni_id)  
+
+def create_xml(record_data, instruction=None, isni_identifiers=None):
+    """
+    Creates ISNI AtomPub XML
+    :param record_data: record data in dict object as described in commented section above
+    :param instruction: instructions merge or isNot for adding otherIdentifierOfIdentity or isNot element to request
+    :param isni_identifiers: ISNI identifiers for ISNI records that will be merged to local record or dissociated from local record
+    """   
     request = ET.Element("Request")
-    
     try:
+        
         identityInformation = ET.SubElement(request, 'identityInformation')
         requestorIdentifierOfIdentity = ET.SubElement(identityInformation, 'requestorIdentifierOfIdentity')
         create_subelement(requestorIdentifierOfIdentity, record_data, 'identifier')
-        if 'otherIdentifierOfIdentity' in record_data:
-            for oid in record_data['otherIdentifierOfIdentity']:
-                otherIdentifierOfIdentity = ET.SubElement(identityInformation, 'otherIdentifierOfIdentity')
-                for element in oid:
-                    create_subelement(otherIdentifierOfIdentity, oid, element)
+        if instruction == "merge" and isni_identifiers:
+            isni_id = validate_isni_id(isni_identifiers[0])
+            if isni_id:
+                record_data['otherIdentifierOfIdentity'].append({'identifier': isni_id['identifier'], 'type': isni_id['type']})
+        for oid in record_data['otherIdentifierOfIdentity']:
+            otherIdentifierOfIdentity = ET.SubElement(identityInformation, 'otherIdentifierOfIdentity')
+            for element in oid:
+                create_subelement(otherIdentifierOfIdentity, oid, element)
         identity = ET.SubElement(identityInformation, 'identity')
         
         if record_data['identityType'] == 'personOrFiction':
@@ -121,20 +149,23 @@ def create_xml(record_id, record_data):
                 for name in record_data['personalNameVariant']:
                     personalNameVariant = ET.SubElement(personOrFiction, 'personalNameVariant')
                     create_name_subelements(personalNameVariant, name)
-        elif record_data['identityType'] == 'organisation':
-            identity_data = record_data['organisationName']
+        elif record_data['identityType'] == 'organisation': 
             organisation = ET.SubElement(identity, 'organisation')
-            #create_subelement(organisation, identity_data, 'organisationType')
+            create_subelement(organisation, record_data, 'organisationType')
+            identity_data = record_data['organisationName']
             organisationName = ET.SubElement(organisation, 'organisationName') 
             create_name_subelements(organisationName, identity_data)
             usage_dates = ['usageDateFrom', 'usageDateTo']
             for usage_date in usage_dates:
-                if usage_date in identity_data:
-                    if identity_data[usage_date]:
-                        create_subelement(organisation, identity_data, usage_date)
-            #TODO: location of HQ here?
+                if usage_date in record_data:
+                    if record_data[usage_date]:
+                        create_subelement(organisation, record_data, usage_date)
+            if record_data['countryCode']:
+                location = ET.SubElement(organisation, 'location')
+                create_subelement(location, record_data, 'countryCode')
             if record_data['resource']:
                 create_resources(organisation, record_data['resource'])
+
             if record_data['organisationNameVariant']:
                 for name in record_data['organisationNameVariant']:
                     organisationNameVariant = ET.SubElement(organisation, 'organisationNameVariant')
@@ -156,7 +187,21 @@ def create_xml(record_id, record_data):
             for record_uri in record_data['URI']:
                 externalInformation = ET.SubElement(identityInformation, 'externalInformation')
                 uri = ET.SubElement(externalInformation, 'URI')
-                uri.text = record_uri
+                uri.text = record_uri     
+        if (instruction == 'isNot' and isni_identifiers) or record_data['isNot']:
+            if record_data['isNot']:
+                if not isni_identifiers:
+                    isni_identifiers = []
+                for isni_id in record_data['isNot']:
+                    isni_identifiers.append(isni_id)
+            for isni_id in isni_identifiers:
+                isni_id = validate_isni_id(isni_id)
+                if isni_id:
+                    isNot = ET.SubElement(request, 'isNot')
+                    isNot.set("identityType", record_data['identityType'])
+                    relationName = ET.SubElement(isNot, 'relationName')
+                    identifier = ET.SubElement(relationName, isni_id['type'])
+                    identifier.text = isni_id['identifier']
         if 'isRelated' in record_data:
             for relation in record_data['isRelated']:
                 isRelated = ET.SubElement(request, 'isRelated')
@@ -175,18 +220,9 @@ def create_xml(record_id, record_data):
                     create_subelement(isRelated, relation, 'startDateOfRelationship')
                 if relation['endDateOfRelationship']:
                     create_subelement(isRelated, relation, 'endDateOfRelationship')
-        """
-        mergeToISNI is not possible in ISNI batch loads: "Note: Not supported for offline batch import"
-        mergeInstruction values:
-            M - request to merge
-            P - used rarely - when manual review needed
-            N - used rarely - when the target database record contains a possible match field that is false. 
-        if 'mergeToISNI' in record_data:
-            create_subelement(request, paths['mergeToISNI'], record_data['mergeToISNI'])
-        """
 
     except KeyError as e:
-        raise ValueError("Data %s missing from record %s"%(e.args[0], record_id))
+        raise ValueError("Data %s missing from record %s"%(e.args[0], record_data['identifier']))
         
     xml = parseString(ET.tostring(request, "utf-8")).toprettyxml()
     return(xml)

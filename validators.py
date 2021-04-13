@@ -102,9 +102,10 @@ class Validator:
     def check_ISRC(self, isrc):
         #validation instructions from: http://isrc.ifpi.org/en/isrc-standard/code-syntax
         isrc = isrc.replace('-','')
+        additional_country_codes = ['BX', 'BC', 'FX', 'QM', 'QZ', 'DG', 'UK', 'TC', 'CP', 'DG', 'ZZ', 'CS', 'YU']
         if len(isrc) != 12:
             return False
-        if isrc[0:2] not in self.codes['country']:
+        if isrc[0:2] not in self.codes['country'].union(additional_country_codes):
             return False
         if not isrc[5:12].isdigit():
             return False

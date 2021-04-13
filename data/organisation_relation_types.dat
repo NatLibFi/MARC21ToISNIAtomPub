@@ -24,6 +24,7 @@ Jakautumisesta muodostunut;isSupersededBy
 Jakautumista edeltänyt yhteisö;supersedes
 Jakautunut yhteisö;supersedes
 Jakautunut;supersedes
+Jäsen;hasMember
 Kattoyhteisö;isUnitOf
 Laajempi emoyhtiö;isUnitOf
 Laajempi jäsenyhteisö;isUnitOf

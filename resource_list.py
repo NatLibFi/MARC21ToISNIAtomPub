@@ -1,8 +1,12 @@
 import re
 import sys
+import os
 import logging
+import copy
 from term_encoder import TermEncoder
 from validators import Validator
+from pymarc import MARCReader
+from tools import aleph_seq_reader
 
 #creation roles used for sorting and selecting titles for an author, importance of role in alphabetical order:  
 CREATION_ROLES = {
@@ -16,95 +20,53 @@ CREATION_ROLES = {
 
 class ResourceList:
     
-    def __init__(self, input_file, format):
+    def __init__(self, input_file=None, format=None):
         """
         Converts MARC21 bibliographic records into a dict object containing relevant data for ISNI request
         For faster execution crop MARC21 fields from file except 
         leader, 001, 020, 022, 024, 041, 100, 110, 240, 245, 260, 264, 600, 610, 700, 710
-
+        :param input_file: file containing MARC21 bibliographical records
+        :param format: format of input_file, either 'marc21' or 'alephseq'
         """
         self.validator = Validator()
         self.term_encoder = TermEncoder()
         self.titles = {}
         
-        logging.info('Loading titles...')
-        if format == "marc21":
-            from pymarc import MARCReader                         
-            reader = MARCReader(open(input_file, 'rb'), to_unicode=True)
-        elif format == "alephseq":
-            from tools import aleph_seq_reader                       
-            reader = aleph_seq_reader.AlephSeqReader(open(input_file, 'r', encoding="utf-8"))
-        else:
-            logging.error("Not valid format to convert from: "%format)
-            sys.exit(2)
-        self.read_records(reader)
-        logging.info("Resource records from file %s read"%input_file)          
-  
-    def read_records(self, reader):
-        """
-        :param reader: MARCReader from pymarc library 
-        """
-        record = ""
-        while record is not None:
-            try:
-                record = next(reader, None)
-            except Exception as e:
-                logging.exception(e)
-                continue
-            #one record may contain several authors with different functions
-            #try:
-            if record:
-                titledata = self.get_record_data(record)
-                if titledata:
-                    title = {}
-                    title.update({'title': titledata['title']})
-                    """
-                    publisher is mandatory in ISNI imprint element and year is not,
-                    however add year if available for sorting titles by year
-                    """
-                    if 'creationClass' in titledata:
-                        title.update({'creationClass': titledata['creationClass']})
-                    if 'publisher' in titledata:
-                        title.update({'publisher': titledata['publisher']})
-                    if 'date' in titledata:
-                        title.update({'date': titledata['date']})
-                    if 'identifiers' in titledata:
-                        title.update({'identifiers': titledata['identifiers']})
-                    if 'language' in titledata:
-                        title.update({'language': titledata['language']})
-               
-                    for author in titledata['authors']:                    
-                        #checks if author has functions:
-                        authortitle = dict(title)
-                        if titledata['authors'][author]:
-                            #choose only one function from the title for one author (ISNI request maximum):
-                            authortitle.update({'creationRole': titledata['authors'][author]['function']})
-                            #one of CREATION_ROLES
-                            authortitle.update({'role': titledata['authors'][author]['role']})  
-                        if author in self.titles:
-                            self.titles[author].append(authortitle)
-                        else:
-                            titlelist = []
-                            titlelist.append(authortitle)
-                            self.titles[author] = titlelist
+        if input_file:
+            logging.info('Loading titles...')
             
+            if format == "marc21":                       
+                reader = MARCReader(open(input_file, 'rb'), to_unicode=True)
+            elif format == "alephseq":                    
+                reader = aleph_seq_reader.AlephSeqReader(open(input_file, 'r', encoding="utf-8"))
+            else:
+                logging.error("Not valid format to convert from: "%format)
+                sys.exit(2)
+            record = ""
+            while record is not None:
+                try:
+                    record = next(reader, None)
+                except Exception as e:
+                    logging.exception(e)
+                    continue
+                if record:
+                    self.get_record_data(record)
 
-            
-    def get_record_data(self, record):
-        authors = {}
+        logging.info("Resource records from file %s read"%input_file)          
+                        
+    def get_record_data(self, record, search_id=None):
+        """
+        Collects data for ISNI request from a bibliograpical MARC21 record 
+        :param record: bibliographical MARC21 record 
+        :param search_id: get record information of only one author with this id
+        """
         title_of_work = {} 
-        creationClass = None
-        publisher = None
-        title = None
-        uniform_title = None
-        date = None
-        identifiers = {}
-        language = None
         if record['001']:
             record_id = record['001'].data
         else:
             return
-
+        title = None
+        uniform_title = None
         for field in record.get_fields('240'):
             for sf in field.get_subfields('a'):
                 title = self.trim_data(sf)
@@ -128,70 +90,78 @@ class ResourceList:
                 if field['b']:  
                     title += " " + field['b']
                     title = self.trim_data(title)
+        if title:
+            title_of_work['title'] = title
         if hasattr(record, 'leader'):
             leader = record.leader
         else:
             logging.error("Bibliographical record %s has not a leader"%record_id)
             return
-        creationClass = self.validator.get_creation_class(leader)
-        if not creationClass:
+        creation_class = self.validator.get_creation_class(leader)
+        title_of_work['creationClass'] = creation_class
+        if not creation_class:
             logging.error("Bibliographical record %s leader is invalid"%record_id)
-        
+        title_of_work['publisher'] = None
+        title_of_work['date'] = None
         for field in record.get_fields('260'):    
             if field['b']:
                 publisher = field['b']
-                publisher = self.trim_data(publisher)
-            if publisher and field['c']:
+                title_of_work['publisher']  = self.trim_data(publisher)
+            if title_of_work['publisher'] and field['c']:
                 #Note: ISNI allows more than one date, but for sorting purposes the first valid year is chosen
                 #publisher's name is mandatory, date of publication is no
-                date = self.trim_year(field['c'])
-        if not publisher:
+                title_of_work['date'] = self.trim_year(field['c'])
+        if not title_of_work['publisher']:
             for field in record.get_fields('264'):                
                 if field['b']:
                     publisher = field['b']
-                    publisher = self.trim_data(publisher)
-                    if publisher and field['c']:
-                        date = self.trim_year(field['c'])
+                    title_of_work['publisher'] = self.trim_data(publisher)
+                    if title_of_work['publisher'] and field['c']:
+                        title_of_work['date'] = self.trim_year(field['c'])
         
         """
         valid identifiers for titles of work in ISNI: ISRC, ISWC, ISBN, ISSN, ISAN, ISTC, ISMN, DOI, OCN 
         """
-        identifiers.update({"ISBN": self.get_identifiers("ISBN", record, '020', 'a')})
-        identifiers.update({"ISSN": self.get_identifiers("ISSN", record, '022', 'a')})
-        identifiers.update({"ISRC": self.get_identifiers("ISRC", record, '024', 'a', '0')})
-        identifiers.update({"ISMN": self.get_identifiers("ISMN", record, '024', 'a', '2')})
+        title_of_work['identifiers'] = {}
+        title_of_work['identifiers']['ISBN'] = self.get_identifiers("ISBN", record, '020', 'a')
+        title_of_work['identifiers']['ISSN'] = self.get_identifiers("ISSN", record, '022', 'a')
+        title_of_work['identifiers']['ISRC'] = self.get_identifiers("ISRC", record, '024', 'a', '0')
+        title_of_work['identifiers']['ISMN'] = self.get_identifiers("ISMN", record, '024', 'a', '2')
                 
         #language code is needed for sorting titles:
+        title_of_work['language'] = None
         for field in record.get_fields('041'):
             if uniform_title:
                 if field['h']:
                     if self.validator.valid_language_code(field['h']):
-                        language = field['h']
+                        title_of_work['language'] = field['h']
                     else:
                         logging.error("Invalid language code in record: %s"%record_id)
             else:
                 #TODO: pick only the first language code if multiple subfields with same code? 
                 if field['a']:
                     if self.validator.valid_language_code(field['a']):
-                        language = field['a']
+                        title_of_work['language'] = field['a']
                     else:
                         logging.error("Invalid language code in record: %s"%record_id)
-                            
+                 
         #fields in prefence order when adding creation roles:
         name_fields = ['100', '110', '700', '710']
         # TODO: matching with authors and works is done with names and ids in batch load
         # when matching is done with ids only, rewrite this section
-
+        authors = {}
         #only one creation role (function) for one author:
         for tag in name_fields:
             for field in record.get_fields(tag):
+                # TODO: temporary code to remove g subfields with "ennakkotieto"
+                if field['g']:
+                    return
                 role = CREATION_ROLES[tag]
                 function_code = None
                 author_id = None
                 for sf in field.get_subfields('0'):
                     #remove parenthesis and text inside, e. g. "(FIN11)":
                     author_id = re.sub("[\(].*?[\)]", "", sf)
-                
                 # TODO: remove this section after batch load
                 if not author_id:
                     author_id = ""
@@ -206,36 +176,34 @@ class ResourceList:
                
                 if author_id and author_id not in authors:
                     #only one creation role possible in ISNI, the first subfield e is chosen
-                    if field['e']:
-                        function_code = self.trim_line_end(field['e'])
-                        function_code = self.term_encoder.encode_term(function_code, "function codes")
-                        if not function_code:
-                            logging.error("Creation role %s in record: %s missing from creation role file"%(field['e'], record_id))
-                    authors.update({author_id: {"function": function_code, "role": role}})
-        
-        title_of_work['authors'] = authors
-        title_of_work['title'] = title
-        title_of_work['creationClass'] = creationClass
-        title_of_work['publisher'] = publisher
-        title_of_work['date'] = date
-        ids = {}
-        for identifier in identifiers:
-            if identifiers[identifier]:
-                ids.update({identifier: identifiers[identifier]})
-        title_of_work['identifiers'] = ids
-        title_of_work['language'] = language 
+                    if not(search_id and search_id != author_id):
+                        if field['e']:
+                            f = field['e']
+                            if f.endswith(",") or f.endswith("."):
+                                f = f[:-1]
+                            function_code = self.term_encoder.encode_term(f, "function codes")
+                            if not function_code:
+                                logging.error("Creation role %s in record: %s missing from creation role file"%(field['e'], record_id))
+                        authors[author_id] = {"creationRole": function_code, "role": role}
         if title:
-            return title_of_work
-    
-    def trim_line_end(self, end):
-        end = str(end)
-        if end.endswith(","):
-            end = end[:-1]
-        if end.endswith("."):
-            end = end[:-1]
-        return end
+
+            for author_id in authors:
+                title_copy = copy.copy(title_of_work)
+                title_copy.update(authors[author_id])
+                if author_id in self.titles:
+                    self.titles[author_id].append(title_copy)
+                else:
+                    self.titles[author_id] = [title_copy]
     
     def get_identifiers(self, identifier_type, record, field_code, subfield_code, indicator1 = " "):
+        """
+
+        :param identifier_type: Name of the identifier
+        :param record: MARC21 record
+        :param field_code: MARC field number from which identifier is fetched
+        :param subfield_code: MARC subfield code from which identifier is fetched
+        :param indicator1: first MARC field indicator, indicating identifier type
+        """
         identifierValues = []
         for field in record.get_fields(field_code):
             if field.indicators[0] == indicator1:
@@ -256,6 +224,10 @@ class ResourceList:
         return identifierValues            
     
     def trim_year(self, year):
+        """
+        Trims MARC21 data from field 260 or 264
+        :param year: MARC21 string data from a single subfield from field 260 or 264
+        """
         replacable_chars = ['[', ']', '.', 'c', '(', ')']
         for rc in replacable_chars:
             year = year.replace(rc, '')
@@ -266,6 +238,10 @@ class ResourceList:
         return None    
     
     def trim_data(self, data):
+        """
+        Trims MARC21 hyphenation from MARC data
+        :param data: MARC21 string data from a single subfield 
+        """
         # remove data that has corrupted characters
         if "�" in data:
             return

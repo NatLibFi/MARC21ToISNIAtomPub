@@ -1,5 +1,5 @@
 aatteellinen yhdistys;Not for Profit Organization
-aikakauslehti;News service
+aikakauslehti;News Service
 aikuislukio;School (K12) or School District
 aikuisopisto;University or College
 ainejärjestö;Association or Society
@@ -35,6 +35,7 @@ eläkelaitos;For Profit Corporation
 energialaitos;For Profit Corporation
 erikoiskirjasto;Academic Library
 erityiskoulu;School (K12) or School District
+Eurooppayhtiö;For Profit Corporation
 festivaali;Other to be defined 
 finanssiryhmä;For Profit Corporation
 galleria;Museum or Historical Society
@@ -314,7 +315,8 @@ rykmentti;Other to be defined
 sairaala;Hospital or Health Agency
 sairaanhoito-oppilaitos;University or College
 sairaanhoitopiiri;Hospital or Health Agency
-sanomalehti;News service
+Sali;Other to be defined 
+sanomalehti;News Service
 sekakuoro;Musical group or band
 seminaari;Other to be defined 
 seura;Association or Society
@@ -426,6 +428,7 @@ yhteiskoulu;School (K12) or School District
 yhteiskunnallinen liike;Not for Profit Organization
 yhteisö;Not for Profit Organization
 yhtiö;For Profit Corporation
+yhty;Musical group or band
 yhtye;Musical group or band
 yhtymä;For Profit Corporation
 yksikkö;Other to be defined 
@@ -443,4 +446,5 @@ ylioppilasteatteri;Performing group
 yläkoulu;School (K12) or School District
 ympäristökeskus;Other to be defined 
 yritys;For Profit Corporation
+ääitysstudio;Recording Agency
 äänitysstudio;Recording Agency
