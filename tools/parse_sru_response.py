@@ -81,7 +81,7 @@ def get_records(response):
     marc_records = []
     tree = ET.ElementTree(ET.fromstring(response))
     root = tree.getroot()
-    # these functions are overridden by parse_oai_response 
+    # these pymarc functions are overridden by parse_oai_response 
     XmlHandler.startElementNS = startElementNS
     XmlHandler.endElementNS = endElementNS
     for records in root.findall('zs:records', NAMESPACES):
@@ -97,56 +97,3 @@ def get_records(response):
                 parser.parse(f)
                 marc_records.extend(handler.records)
     return marc_records
-
-    """
-    handler = marcxml.XmlHandler()
-    parser = xml.sax.make_parser()
-    print(type(parser))
-    parser.setContentHandler(handler)
-    parser.setFeature(feature_namespaces, 1)
-    parser.parse(url)
-    print("handler.all_properties")
-    print(parser.all_properties)
-    print(CharacterDataHandler)
-    return handler.records
-
-    
-    tree = ET.ElementTree(ET.fromstring(response))
-    root = tree.getroot()
-    marc_records = []
-    for records in root.findall('zs:records', namespaces):
-        for record in records.findall('zs:record', namespaces):
-            for record_data in record.findall('zs:recordData', namespaces):
-                handler = marcxml.XmlHandler()
-                for marc_record in record_data:
-                #data = bytes(record_data)
-                #records = parse_xml_to_array(bytes(record_data))
-                    
-                    stringi = ET.tostring(marc_record)
-                    lines = "".join(map(chr, stringi)).splitlines()
-                    handler.process_record(stringi)
-                    print(handler.records)
-                    #handle = open('testi.xml', "wb")
-                    #handle.write(ET.tostring(marc_record, encoding='UTF-8', pretty_print=True, xml_declaration=True))
-                    #marc_records = parse_xml_to_array(open('testi.xml'))
-                    stringi = ET.tostring(marc_record)
-                    print("type")
-                    print(type(stringi))
-                    lines = "".join(map(chr, stringi)).splitlines()
-                    lines = "".join(map(chr, stringi))
-                    
-                    #parser = xml.sax.make_parser()
-                    #parser.setContentHandler(handler)
-                    #parser.setFeature(feature_namespaces, 1)
-
-                    #parser.parse(stringi)
-                    #parser.parseString(ET.tostring(marc_record), handler)
-                    xml.sax.parseString(stringi, handler)
-                    
-                    print(type(marc_record))
-                    xml.sax.parseString(lines, handler)
-                    #xml.sax.parse('testi.xml', handler)
-                    print("handler")
-                    print(handler.records)
-
-    """

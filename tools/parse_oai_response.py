@@ -67,8 +67,7 @@ def get_identifiers(response):
      
 def get_records(response):
     root = ET.fromstring(bytes(response, encoding='utf-8'))
-    #pymarc.marcxml.XmlHandler.startElementNS = startElementNS
-    #pymarc.marcxml.XmlHandler.endElementNS = endElementNS
+    # these pymarc functions are overridden by parse_oai_response 
     OAIHandler.startElementNS = startElementNS
     OAIHandler.endElementNS = endElementNS
     marc_records = []
@@ -76,7 +75,6 @@ def get_records(response):
         string_et = ET.tostring(records, encoding='utf-8', method='xml')
         string_xml = string_et.decode("utf-8") 
         f = io.StringIO(string_xml)
-        #handler = pymarc.marcxml.XmlHandler()
         handler = OAIHandler()
         parser = xml.sax.make_parser()
         parser.setContentHandler(handler)

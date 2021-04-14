@@ -32,7 +32,7 @@ class Converter():
         parser.add_argument("-rf", "--resource_files",  
             help="File containing titles of works of authors")
         parser.add_argument("-od", "--output_directory",  
-            help="Output directory for ISNI AtomPub XML files", required=True)
+            help="Output directory for ISNI AtomPub XML files")
         parser.add_argument("-vf", "--validation_file",  
             help="Enter file path of ISNI Atom Pub Request XSD file to validate XML requests")
         parser.add_argument("-log", "--log_file",
@@ -89,7 +89,12 @@ class Converter():
             self.modified_after = datetime.date(datetime.strptime(args.modified_after, "%Y-%m-%d"))
         if args.created_after:
             self.created_after = datetime.date(datetime.strptime(args.created_after, "%Y-%m-%d"))
-
+        
+        if args.mode == 'write':
+            if not args.output_directory:
+                logging.error("Mode is set to write. Set output directory parameter for output files")
+                sys.exit(2)
+            
         if (args.authority_files or args.resource_files) and not args.format:
             logging.error("Using authority_files or resource_files command line arguments but argument format is missing.")
             sys.exit(2)
@@ -142,8 +147,8 @@ class Converter():
         if args.validation_file:
             with open(args.validation_file, 'rb') as fh:
                 xmlschema_doc = etree.parse(fh)
-                xmlschema = etree.XMLSchema(xmlschema_doc)
-        if not os.path.exists(args.output_directory):
+                xmlschema = etree.XMLSchema(xmlschema_doc)   
+        if args.output_directory and not os.path.exists(args.output_directory):
             os.mkdir(args.output_directory)
         dirindex = 0
         xml = ""
@@ -177,13 +182,15 @@ class Converter():
             xml = create_xml(records[record_id], merge_instruction, merge_identifiers)
             if idx % dirmax == 0:
                 dirindex += 1
-            subdir = os.path.join(args.output_directory, str(dirindex).zfill(3))
-            if not (os.path.exists(subdir)) and not concat:
-                os.mkdir(subdir)
+            if args.output_directory:
+                subdir = os.path.join(args.output_directory, str(dirindex).zfill(3))
+                if not (os.path.exists(subdir)) and not concat:
+                    os.mkdir(subdir)
             if xmlschema:
                 if not self.valid_xml(record_id, xml, xmlschema):
                     continue
             if args.mode == "send":
+                logging.info("Sending record %s"%record_id)
                 response = self.send_xml(xml)
                 if 'possible matches' in response:
                     possible_matches = []

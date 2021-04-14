@@ -108,12 +108,6 @@ def get_assigned_isnis(self):
             isni = ""
             deprecated_isni = ""
             main_name = ""
-            """
-            #Search for other identifiers:
-            matchingData = False
-            for match in record.findall('matchingData'):
-                matchingData = True
-            """
             for status in record.findall('isniStatus'):
                 for plain in status.findall('isniPlain'):
                     isni = plain.text
@@ -132,33 +126,14 @@ def get_assigned_isnis(self):
                     id = re.sub("[\(].*?[\)]", "", id.text)
                     ids.append(id)
                     if len(ids) > 1:
-
-                        #contributor_ids[isni] = {"id": isni, "deprecated isni": deprecated_isni, "url": ppn, "name": main_name}
-                        #contributor_ids[id] = {"isni": isni, "deprecated isni": deprecated_isni, "url": ppn, "name": main_name}
                         logging.error("Multiple local identifiers linked to one ISNI %s"%isni)
                     else:
-                        """
-                        if id in contributor_ids:
-                            if isni not in contributor_ids[id]:
-                                logging.error("Multiple local identifiers %s linked to one ISNI"%isni)
-                        else:
-                        """
                         if not id in contributor_ids:
                             #contributor_ids[id] = {"isni": isni, "deprecated isni": deprecated_isni, "url": ppn, "name": main_name}}
                             pass
             if len(ids) > 1:
                 contributor_ids[isni] = {"id": ids, "deprecated isni": deprecated_isni, "url": ppn, "name": main_name}
-                """
-                ids = {}
-                for id in contributor_ids:
-                    isni = contributor_ids[id]['isni']
-                    if isni in ids:
-                        print("already")
-                        ids[isni]["id"].append(id)
-                    else:
-                        ids[isni] = {"id": [id], "url": contributor_ids[id]['url']}
-                #print(ids)
-                """
+
     return contributor_ids
 
 def get_contributor_identifiers(contributor_id):

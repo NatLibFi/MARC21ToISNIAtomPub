@@ -164,7 +164,6 @@ class APIQuery():
 
     def api_search(self, query_strings=None, parameters=None):
         url = self.form_query_url(query_strings, parameters)
-        print(url)
         try:
             r = requests.get(url, timeout=20)
         except requests.exceptions.ReadTimeout:

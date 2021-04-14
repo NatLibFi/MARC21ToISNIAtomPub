@@ -60,6 +60,7 @@ class MARC21DataCollector:
         reader = []
         current_ids = [] # for record identifiers of new records if keyword arg created_after is used (titles for modified records are not requested)  
         if not args.authority_files:
+            logging.info("Requesting authority records with API")
             identifiers = []
             if requested_ids:
                 for identifier in requested_ids: 
@@ -413,7 +414,7 @@ class MARC21DataCollector:
                     deletable_identities.add(record_id)
                     del_counter += 1
         logging.info("Number of discarded records without resources: %s"%del_counter) 
-        logging.warning("Number of identities to be converted: %s"%len(identities))
+        logging.info("Number of identities to be converted: %s"%len(identities))
         for idx in deletable_identities:
             if idx in identities:
                 del(identities[idx]) 
@@ -803,6 +804,7 @@ class MARC21DataCollector:
         query_strings.append(" AND (melinda.authenticationcode=finb OR melinda.authenticationcode=finbd)")
         record_position = 1
         additional_parameters = {'maximumRecords': '50', 'startRecord': str(record_position)}
+        logging.info("Requesting bibliographical records for authority record %s"%identity_id)
         response = self.sru_bib_query.api_search(query_strings, additional_parameters)
         response_records = parse_sru_response.get_records(response)    
         if response_records:    
