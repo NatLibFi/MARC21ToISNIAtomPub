@@ -105,8 +105,9 @@ class ResourceList:
         title_of_work['date'] = None
         for field in record.get_fields('260'):    
             if field['b']:
-                publisher = field['b']
-                title_of_work['publisher']  = self.trim_data(publisher)
+                if not "tuntematon" in field['b']:
+                    publisher = field['b']
+                    title_of_work['publisher']  = self.trim_data(publisher)
             if title_of_work['publisher'] and field['c']:
                 #Note: ISNI allows more than one date, but for sorting purposes the first valid year is chosen
                 #publisher's name is mandatory, date of publication is no
@@ -114,10 +115,11 @@ class ResourceList:
         if not title_of_work['publisher']:
             for field in record.get_fields('264'):                
                 if field['b']:
-                    publisher = field['b']
-                    title_of_work['publisher'] = self.trim_data(publisher)
-                    if title_of_work['publisher'] and field['c']:
-                        title_of_work['date'] = self.trim_year(field['c'])
+                    if not "tuntematon" in field['b']:
+                        publisher = field['b']
+                        title_of_work['publisher'] = self.trim_data(publisher)
+                        if title_of_work['publisher'] and field['c']:
+                            title_of_work['date'] = self.trim_year(field['c'])
         
         """
         valid identifiers for titles of work in ISNI: ISRC, ISWC, ISBN, ISSN, ISAN, ISTC, ISMN, DOI, OCN 

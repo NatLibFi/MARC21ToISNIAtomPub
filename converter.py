@@ -168,9 +168,8 @@ class Converter():
             if merge_instructions:
                 if record_id not in merge_instructions:
                     continue
-                else:
-                    merge_instruction = merge_instructions[record_id]['instruction']
-                    merge_identifiers = merge_instructions[record_id]['identifiers']
+                merge_instruction = merge_instructions[record_id]['instruction']
+                merge_identifiers = merge_instructions[record_id]['identifiers']
             elif self.created_after:
                 creation_date = datetime.date(datetime.strptime(records[record_id]['creation date'], "%Y-%m-%d"))
                 if creation_date < self.created_after:

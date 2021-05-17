@@ -100,7 +100,12 @@ class MARC21DataCollector:
 
         isnis = {}
         identities = {}
-        deletable_identities = set() # identifiers of merged identities and identities without resources 
+        # identifiers of merged identities and identities without resources
+        deletable_identities = set()
+        # these two sets for the case when requested_ids parameter is used,
+        # id not in requested_ids but merged with requested_ids
+        related_identities = set() 
+        not_requested_ids = set()
         if not reader:
             if args.format == "marc21":
                 reader = MARCReader(open(args.authority_files, 'rb'), to_unicode=True)
@@ -133,6 +138,7 @@ class MARC21DataCollector:
             if not any(record[f] for f in convertible_fields):
                 continue
             if requested_ids and record_id not in requested_ids:
+                related_identities.add(record_id)
                 deletable_identities.add(record_id)
                 
             test = False
@@ -147,20 +153,21 @@ class MARC21DataCollector:
                 for sf in field.get_subfields('a'): 
                     if sf == "ei-isni-loadi-ed":
                         deletable_identities.add(record_id)
+                        not_requested_ids.add(record_id)
             identities[record_id] = {}
             identity = identities[record_id]
             identity['modification date'] = None
             identity['creation date'] = None
             # get cataloging identifiers whose modification to records are neglected
             try:
-                cataloguers = json.loads(self.config['SETTINGS'].get('cataloguers'))
+                self.cataloguers = json.loads(self.config['SETTINGS'].get('cataloguers'))
             except json.decoder.JSONDecodeError as e:
                 logging.error("Parameters %s malformatted in config.ini"%self.config['SETTINGS'].get('cataloguers'))
                 logging.error(e)
                 sys.exit(2)
             for field in record.get_fields("CAT"):
                 cataloguer = field['a']
-                if cataloguer not in cataloguers:
+                if cataloguer not in self.cataloguers:
                     for sf in field.get_subfields('c'):
                         formatted_date = sf[:4] + "-" + sf[4:6] + "-" + sf[6:8]
                         if not identity['creation date']:
@@ -347,7 +354,12 @@ class MARC21DataCollector:
                     data = {}
                     merged_ids.extend(ids)
                     for identifier in ids:
-                        data[identifier] = {'ISNI': identities[identifier]['ISNI'], 'isNot': [], 'merge': set()}
+                        data[identifier] = {'ISNI': identities[identifier]['ISNI'],
+                                            'isNot': set(),
+                                            'merge': set(),
+                                            'delete': False}
+                        if identifier in not_requested_ids:
+                            data[identifier]['delete'] = True
                     merged_id_clusters.append(data)  
         merge_counter = 0
 
@@ -355,21 +367,30 @@ class MARC21DataCollector:
             for cluster_id in cluster:
                 for other_id in cluster:
                     if cluster_id != other_id:
-                        if cluster[cluster_id]['ISNI'] == cluster[other_id]['ISNI']:
-                            cluster[cluster_id]['merge'].add(other_id)
+                        if cluster[cluster_id]['ISNI'] and cluster[other_id]['ISNI']:
+                            if cluster[cluster_id]['ISNI'] != cluster[other_id]['ISNI']:
+                                cluster[cluster_id]['isNot'].add(cluster[other_id]['ISNI'])
+                            elif not cluster[cluster_id]['delete']:
+                                cluster[cluster_id]['merge'].add(other_id)
+                            if cluster_id not in not_requested_ids and other_id not in not_requested_ids:
+                                logging.error("Local identifiers %s and %s have same ISNI"%(cluster_id, other_id))
+                                not_requested_ids.update([cluster_id, other_id])
                         if cluster[other_id]['ISNI']:
                             if cluster[cluster_id]['ISNI'] != cluster[other_id]['ISNI']:
-                                cluster[cluster_id]['isNot'].append(cluster[other_id]['ISNI'])
-                            elif cluster_id not in deletable_identities and other_id not in deletable_identities:
-                                    logging.error("Local identifiers %s and %s have same ISNI"%(cluster_id, other_id))
-                                    deletable_identities.update([cluster_id, other_id])
+                                cluster[cluster_id]['isNot'].add(cluster[other_id]['ISNI'])
+
         for cluster in merged_id_clusters:
+            number = 0
             for cluster_id in cluster:
-                if cluster_id not in deletable_identities:
+                if cluster[cluster_id]['delete'] and cluster[cluster_id]['merge']:
+                    logging.error("Record %s has related identities with same ISNI, but lacking 983 field"%cluster_id)
+                    for cluster_id in cluster:
+                        not_requested_ids.add(cluster_id)
+            for cluster_id in cluster:
+                if cluster_id not in not_requested_ids:
                     identities[cluster_id] = self.merge_identities(cluster_id, cluster[cluster_id]['merge'], identities) 
                     identities[cluster_id]['isNot'] = cluster[cluster_id]['isNot']
 
-        merged_ids = set(identifier for cluster in merged_id_clusters for identifier in cluster)
         for record_id in identities:
             if not 'isNot' in identities[record_id]:
                 identities[record_id]['isNot'] = []
@@ -398,12 +419,18 @@ class MARC21DataCollector:
                     related_name['relationType'] = relationType            
                 # delete merged organisation names from related names 
                 if 'identifier' in related_name:
-                    if related_name['identifier'] in deletable_identities:
+                    if related_name['identifier'] in not_requested_ids:
                         deletable_relations.append(idx)
 
             deletable_relations.reverse()
             for idx in deletable_relations:
                 del(identities[record_id]['isRelated'][idx])
+
+        # request related identities in case that identity merged to it is updated:
+        merged_ids = set(identifier for cluster in merged_id_clusters for identifier in cluster)
+        for identifier in merged_ids:
+            if identifier in related_identities and identifier not in not_requested_ids:
+                deletable_identities.remove(identifier)
 
         del_counter = 0
         for record_id in identities:
@@ -414,11 +441,13 @@ class MARC21DataCollector:
                     deletable_identities.add(record_id)
                     del_counter += 1
         logging.info("Number of discarded records without resources: %s"%del_counter) 
-        logging.info("Number of identities to be converted: %s"%len(identities))
+        logging.info("Number of identities to be converted: %s"%(len(identities) - len(deletable_identities)))
+
+        deletable_identities = deletable_identities.union(not_requested_ids)
         for idx in deletable_identities:
             if idx in identities:
                 del(identities[idx]) 
-        
+
         return identities
 
     def get_related_identifiers(self, record_id, identities, related_ids):
@@ -892,7 +921,9 @@ class MARC21DataCollector:
 
     def write_isni_fields(self, isnis, args):
         """
-        A function to write ISNI identifiers into Aleph Sequential format
+        A function to write ISNI identifiers into Aleph Sequential format.
+        Write ISNI identifier even if it exists in record in order to
+        update record to get cataloguer name to record.
         :param isnis: a dict cotaining local identifiers and assigned ISNIs
         :param args: command line arguments
         """
@@ -900,24 +931,26 @@ class MARC21DataCollector:
             for record in self.records:
                 record_id = record['001'].data
                 if record_id in isnis:
-                    isni = isnis[record_id]
-                    fields = []
-                    isni_found = False
-                    false_match = False
-                    for field in record.get_fields("024"):
-                        if field['2'] and field['a']:
-                            if field['2'] == "isni":
-                                if field['a']:
-                                    if isni == field['a']:
-                                        isni_found = True
-                                    else:
-                                        false_match = True
-                        if not false_match:
-                            f = self.create_aleph_seq_field(record_id, field.tag, field.indicators[0], field.indicators[1], field.subfields)
+                    write_isni = True
+                    for field in record.get_fields("CAT"):
+                        for sf in field.get_subfields('a'):
+                            if sf in self.cataloguers:
+                                write_isni = False
+                    if write_isni:
+                        isni = isnis[record_id]
+                        fields = []
+                        for field in record.get_fields("024"):
+                            isni_found = False
+                            if field['2'] and field['a']:
+                                if field['2'] == "isni":
+                                    isni_found = True
+                        if not isni_found:
+                            f = self.create_aleph_seq_field(record_id,
+                                                            field.tag,
+                                                            field.indicators[0],
+                                                            field.indicators[1],
+                                                            field.subfields)
                             fields.append(f)
-                        else:    
-                            false_match = False
-                    if not isni_found:
                         for f in fields:
                             output.write(f + "\n")
                         output.write(record_id + " 0247  L $$a" + isni + "$$2isni\n")
