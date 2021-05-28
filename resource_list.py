@@ -60,6 +60,7 @@ class ResourceList:
         :param record: bibliographical MARC21 record 
         :param search_id: get record information of only one author with this id
         """
+        print(record)
         title_of_work = {} 
         if record['001']:
             record_id = record['001'].data
@@ -116,7 +117,7 @@ class ResourceList:
             for field in record.get_fields('264'):                
                 if field['b']:
                     if not "tuntematon" in field['b']:
-                        publisher = field['b']
+                        publisher = field['b'] 
                         title_of_work['publisher'] = self.trim_data(publisher)
                         if title_of_work['publisher'] and field['c']:
                             title_of_work['date'] = self.trim_year(field['c'])
@@ -156,8 +157,8 @@ class ResourceList:
         for tag in name_fields:
             for field in record.get_fields(tag):
                 # TODO: temporary code to remove g subfields with "ennakkotieto"
-                if field['g']:
-                    return
+                if field['g'] and not field['0']:
+                    continue
                 role = CREATION_ROLES[tag]
                 function_code = None
                 author_id = None
@@ -187,6 +188,7 @@ class ResourceList:
                             if not function_code:
                                 logging.error("Creation role %s in record: %s missing from creation role file"%(field['e'], record_id))
                         authors[author_id] = {"creationRole": function_code, "role": role}
+
         if title:
 
             for author_id in authors:
