@@ -944,13 +944,13 @@ class MARC21DataCollector:
                             if field['2'] and field['a']:
                                 if field['2'] == "isni":
                                     isni_found = True
-                        if not isni_found:
-                            f = self.create_aleph_seq_field(record_id,
-                                                            field.tag,
-                                                            field.indicators[0],
-                                                            field.indicators[1],
-                                                            field.subfields)
-                            fields.append(f)
+                            if not isni_found:
+                                f = self.create_aleph_seq_field(record_id,
+                                                                field.tag,
+                                                                field.indicators[0],
+                                                                field.indicators[1],
+                                                                field.subfields)
+                                fields.append(f)
                         for f in fields:
                             output.write(f + "\n")
                         output.write(record_id + " 0247  L $$a" + isni + "$$2isni\n")
