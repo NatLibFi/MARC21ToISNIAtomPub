@@ -29,7 +29,7 @@ class AlephSeqReader:
                 if self.record['DEL']:
                     return ""
                 elif self.record['STA']:
-                    for field in record.get_fields("STA"):
+                    for field in self.record.get_fields("STA"):
                         for sf in field.get_subfields('a'):
                             if sf == "DELETED":
                                 return ""
