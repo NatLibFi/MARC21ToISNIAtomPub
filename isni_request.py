@@ -118,14 +118,16 @@ def create_xml(record_data, instruction=None, isni_identifiers=None):
     """   
     request = ET.Element("Request")
     try:
-        
         identityInformation = ET.SubElement(request, 'identityInformation')
         requestorIdentifierOfIdentity = ET.SubElement(identityInformation, 'requestorIdentifierOfIdentity')
         create_subelement(requestorIdentifierOfIdentity, record_data, 'identifier')
+        isni_id = None
         if instruction == "merge" and isni_identifiers:
             isni_id = validate_isni_id(isni_identifiers[0])
-            if isni_id:
-                record_data['otherIdentifierOfIdentity'].append({'identifier': isni_id['identifier'], 'type': isni_id['type']})
+        elif not instruction and record_data['ISNI']:
+            isni_id = validate_isni_id(record_data['ISNI'])
+        if isni_id:
+            record_data['otherIdentifierOfIdentity'].append({'identifier': isni_id['identifier'], 'type': isni_id['type']})
         for oid in record_data['otherIdentifierOfIdentity']:
             otherIdentifierOfIdentity = ET.SubElement(identityInformation, 'otherIdentifierOfIdentity')
             for element in oid:

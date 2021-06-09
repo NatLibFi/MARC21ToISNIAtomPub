@@ -161,15 +161,14 @@ class Converter():
 
         isnis = {}
         for record_id in records:
-            if args.id_list and record_id not in requested_ids:
-                continue
             merge_instruction = None
             merge_identifiers = None
             if merge_instructions:
                 if record_id not in merge_instructions:
                     continue
-                merge_instruction = merge_instructions[record_id]['instruction']
-                merge_identifiers = merge_instructions[record_id]['identifiers']
+                else:
+                    merge_instruction = merge_instructions[record_id]['instruction']
+                    merge_identifiers = merge_instructions[record_id]['identifiers']
             elif self.created_after:
                 creation_date = datetime.date(datetime.strptime(records[record_id]['creation date'], "%Y-%m-%d"))
                 if creation_date < self.created_after:
@@ -222,7 +221,6 @@ class Converter():
         if args.concat:
             with open(args.output_directory+"/concat.xml", 'ab+') as concat_file:
                 concat_file.write(bytes("</root>", "UTF-8"))
-        
         if isnis:
             data_collector.write_isni_fields(isnis, args)
 
