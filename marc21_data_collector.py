@@ -932,12 +932,17 @@ class MARC21DataCollector:
                 record_id = record['001'].data
                 if record_id in isnis:
                     write_isni = True
+                    isni = isnis[record_id]
                     for field in record.get_fields("CAT"):
                         for sf in field.get_subfields('a'):
                             if sf in self.cataloguers:
                                 write_isni = False
+                    for field in record.get_fields("024"):
+                            isni_found = False
+                            if field['2'] and field['a']:
+                                if field['2'] == "isni" and field['a'] == isni:
+                                    write_isni = False
                     if write_isni:
-                        isni = isnis[record_id]
                         fields = []
                         for field in record.get_fields("024"):
                             isni_found = False
