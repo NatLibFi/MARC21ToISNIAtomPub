@@ -343,13 +343,18 @@ class MARC21DataCollector:
         merged_ids = []
         merged_id_clusters = []
         mergeable_relations = ["supersedes", "isSupersededBy"]
+
         for record_id in identities:
             if record_id not in merged_ids and identities[record_id]['identityType'] == 'organisation':
                 ids = [record_id]
                 for idx, related_name in enumerate(identities[record_id]['isRelated']):
                     relationType = related_name['relationType']
                     if relationType in mergeable_relations:
-                        self.get_linked_ids(identities, related_name['identifier'], ids, mergeable_relations)
+                        # in case MARC field 510 subfield 0 is missing
+                        if related_name['identifier']:
+                            self.get_linked_ids(identities, related_name['identifier'], ids, mergeable_relations)
+                        else:
+                            logging.error('Record %s is missing one of its 510 0 subfields'%record_id)
                 if len(ids) > 1:
                     data = {}
                     merged_ids.extend(ids)
