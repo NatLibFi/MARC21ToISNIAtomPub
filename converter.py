@@ -178,6 +178,8 @@ class Converter():
                 if modification_date < self.modified_after:
                     continue
             xml = create_xml(records[record_id], merge_instruction, merge_identifiers)
+            if not xml:
+                continue
             if idx % dirmax == 0:
                 dirindex += 1
             if args.output_directory:

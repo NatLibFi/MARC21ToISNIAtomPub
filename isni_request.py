@@ -122,10 +122,17 @@ def create_xml(record_data, instruction=None, isni_identifiers=None):
         requestorIdentifierOfIdentity = ET.SubElement(identityInformation, 'requestorIdentifierOfIdentity')
         create_subelement(requestorIdentifierOfIdentity, record_data, 'identifier')
         isni_id = None
+        local_isni = None
         if instruction == "merge" and isni_identifiers:
             isni_id = validate_isni_id(isni_identifiers[0])
-        elif not instruction and record_data['ISNI']:
-            isni_id = validate_isni_id(record_data['ISNI'])
+        if record_data['ISNI']:
+            local_isni = validate_isni_id(record_data['ISNI'])
+        if isni_id and local_isni:
+            if isni_id['identifier'] != local_isni['identifier']:
+                logging.error("ISNI identifier %s in merge instruction differs from local ISNI %s"%(isni_id, local_isni))
+                return
+        elif local_isni:
+            isni_id = local_isni
         if isni_id:
             record_data['otherIdentifierOfIdentity'].append({'identifier': isni_id['identifier'], 'type': isni_id['type']})
         for oid in record_data['otherIdentifierOfIdentity']:
