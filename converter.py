@@ -195,10 +195,13 @@ class Converter():
                 if 'possible matches' in response:
                     possible_matches = []
                     for pm in response['possible matches']:
-                        result = self.sru_api_query.search_with_id('ppn', pm['id'])
-                        isni_id = parse_sru_response.get_isni_identifier(result)
-                        if isni_id and len(isni_id) == 16:
-                            pm['id'] = isni_id
+                        if 'id' in pm:
+                            result = self.sru_api_query.search_with_id('ppn', pm['id'])
+                            isni_id = parse_sru_response.get_isni_identifier(result)
+                            if isni_id and len(isni_id) == 16:
+                                pm['id'] = isni_id
+                        else:
+                            logging.error('Record %s has missing possible match id'%record_id)
                     if len(possible_matches) == 1:
                         if possible_matches[0] == records[record_id]['ISNI']:
                             xml = create_xml(records[record_id], records[record_id]['ISNI'])
