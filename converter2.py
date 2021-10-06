@@ -124,7 +124,7 @@ class Converter():
                 if row[0].value:
                     local_id = str(row[0].value).strip()
                 else:
-                    logging.error("Local id missing in row number %s"%idx)
+                    logging.error("Local id missing in row %s"%row)
                 if local_id:
                     if row[4].value:
                         if row[4].value in ['merge', 'isNot', 'resend']:
