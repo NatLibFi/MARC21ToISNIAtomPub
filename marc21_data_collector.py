@@ -375,11 +375,12 @@ class MARC21DataCollector:
                         if cluster[cluster_id]['ISNI'] and cluster[other_id]['ISNI']:
                             if cluster[cluster_id]['ISNI'] != cluster[other_id]['ISNI']:
                                 cluster[cluster_id]['isNot'].add(cluster[other_id]['ISNI'])
-                            elif not cluster[cluster_id]['delete']:
-                                cluster[cluster_id]['merge'].add(other_id)
-                            if cluster_id not in not_requested_ids and other_id not in not_requested_ids:
-                                logging.error("Local identifiers %s and %s have same ISNI"%(cluster_id, other_id))
-                                not_requested_ids.update([cluster_id, other_id])
+                            else:
+                                if cluster_id not in not_requested_ids and other_id not in not_requested_ids:
+                                    logging.error("Local identifiers %s and %s have same ISNI"%(cluster_id, other_id))
+                                    not_requested_ids.update([cluster_id, other_id])
+                                elif not cluster[cluster_id]['delete']:
+                                    cluster[cluster_id]['merge'].add(other_id)
                         if cluster[other_id]['ISNI']:
                             if cluster[cluster_id]['ISNI'] != cluster[other_id]['ISNI']:
                                 cluster[cluster_id]['isNot'].add(cluster[other_id]['ISNI'])
@@ -943,10 +944,10 @@ class MARC21DataCollector:
                             if sf in self.cataloguers:
                                 write_isni = False
                     for field in record.get_fields("024"):
-                            isni_found = False
-                            if field['2'] and field['a']:
-                                if field['2'] == "isni" and field['a'] == isni:
-                                    write_isni = False
+                        isni_found = False
+                        if field['2'] and field['a']:
+                            if field['2'] == "isni" and field['a'] != isni:
+                                write_isni = True
                     if write_isni:
                         fields = []
                         for field in record.get_fields("024"):
