@@ -208,21 +208,25 @@ class MARC21DataCollector:
                     identity['personalNameVariant'] = []
                     for field in record.get_fields('400'):
                         variant = self.get_personal_name(record_id, field)
-                        is_real_name = False
+                        is_related_name = False
                         for sf in field.get_subfields('4'):
-                            if sf == "toni":
-                                is_real_name = True
-                        if is_real_name:
+                            if sf in ['toni', 'pseu']:
+                                is_related_name = True
+                        if is_related_name:
                             if variant:
-                                identity['isRelated'].append({
+                                related_person = {
                                     "identifier": None,
                                     "identityType": 'personOrFiction',
-                                    "relationType": 'real name',
                                     "organisationName": None,
                                     "personalName": variant,
                                     "startDateOfRelationship": None,
                                     "endDateOfRelationship": None
-                                })
+                                }
+                                if sf == 'toni':
+                                    related_person['relationType'] = 'real name'
+                                elif sf == 'pseu':
+                                    related_person['relationType'] = 'pseudonym'
+                                identity['isRelated'].append(related_person)
                         else:
                             if variant:
                                 identity['personalNameVariant'].append(variant)
@@ -418,7 +422,8 @@ class MARC21DataCollector:
                 if not relationType:
                     if not(identities[record_id]['identityType'] == 'organisation' and \
                         related_name['identityType'] == 'organisation'):
-                        related_name['relationType'] = "undefined or unknown"
+                        if not related_name['relationType']:
+                            related_name['relationType'] = "undefined or unknown"
                     else:
                         deletable_relations.append(idx)
                 else:
