@@ -225,7 +225,7 @@ class MARC21DataCollector:
                                 if sf == 'toni':
                                     related_person['relationType'] = 'real name'
                                 elif sf == 'pseu':
-                                    related_person['relationType'] = 'pseud'
+                                    related_person['relationType'] = 'pseudonym'
                                 identity['isRelated'].append(related_person)
                         else:
                             if variant:
