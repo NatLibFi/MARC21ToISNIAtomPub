@@ -493,7 +493,10 @@ class MARC21DataCollector:
                 related_identities.append(related_identity)
         del(merged_identity['isRelated'])     
         merged_identity['isRelated'] = related_identities
-
+        if 'usageDateFrom' in merged_identity:
+            del(merged_identity['usageDateFrom'])
+        if 'usageDateTo' in merged_identity:
+            del(merged_identity['usageDateTo'])
         # TODO: remove 'established names' parameter when not needed anymore 
         self.sort_resources(identifier, merged_identity['established names'], merged_identity['languageOfIdentity'])
         return merged_identity 
