@@ -654,8 +654,9 @@ class MARC21DataCollector:
                 if surname.endswith(","):
                     surname = surname[:-1]
             elif field.indicators[0] == "1":    
+                if sf.endswith(","):
+                    sf = sf[:-1]
                 if not "," in sf:
-                    logging.warning("%s: wrong indicator in field: %s"%(id, field))
                     surname = sf
                 else:    
                     surname, forename = sf.split(',', 1)
