@@ -68,6 +68,9 @@ class RaportWriter():
         elif 'error' in response:
             cells.extend(response['error'])
             self.write_response('epäonnistuneet', cells)
+        elif 'reason' in response:
+            cells.append(response['reason'])
+            self.write_response('epäonnistuneet', cells)
             
     def write_response(self, work_sheet_name, cells):
         wb = openpyxl.load_workbook(self.output_path)
