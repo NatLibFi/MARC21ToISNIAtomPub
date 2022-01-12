@@ -12,7 +12,7 @@ import configparser
 import requests
 from datetime import datetime
 from isni_request import create_xml
-from marc21_data_collector import MARC21DataCollector
+from marc21_converter import MARC21Converter
 from tools import parse_atompub_response
 from tools import parse_sru_response
 from tools import xlsx_raport_writer
@@ -58,11 +58,12 @@ class Converter():
             help="Path of CSV file containing merge instructions for ISNI requests")
         parser.add_argument("-orl", "--output_raport_list",  
             help="File name of CSV file raport for unsuccesful ISNI requests")
-        parser.add_argument("-oil", "--output_isni_list",  
+        parser.add_argument("-oil", "--output_marc_fields",
             help="File name for Aleph sequential MARC21 fields code 024 where received ISNI identifiers are written along recent identifiers")
         parser.add_argument("-m", "--mode",
             help="Mode of program: Write requests into a directory or send them to ISNI", choices=['write', 'send'], required=True)
         args = parser.parse_args()
+        self.converter = None
         self.convert_to_atompub(args)
 
     def convert_to_atompub(self, args):
@@ -137,8 +138,8 @@ class Converter():
                                 merge_instructions[local_id]['identifiers'].append(str(col[0].value).strip())
                                 requested_ids.add(local_id)
 
-        data_collector = MARC21DataCollector()       
-        records = data_collector.get_author_data(args, requested_ids)
+        self.converter = MARC21Converter()
+        records = self.converter.get_author_data(args, requested_ids)
         concat = False
         xmlschema = None
         dirmax = 100
@@ -227,7 +228,7 @@ class Converter():
             with open(args.output_directory+"/concat.xml", 'ab+') as concat_file:
                 concat_file.write(bytes("</root>", "UTF-8"))
         if isnis:
-            data_collector.write_isni_fields(isnis, args)
+            self.converter.write_isni_fields(isnis, args)
 
     def valid_xml(self, record_id, xml, xmlschema):
         try:

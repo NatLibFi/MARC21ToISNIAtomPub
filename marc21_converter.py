@@ -13,7 +13,7 @@ import re
 import sys
 import configparser
 
-class MARC21DataCollector:
+class MARC21Converter:
     """
         A class to collect data from mrc binary files to ISNI Atom Pub XML format.
     """
@@ -22,6 +22,9 @@ class MARC21DataCollector:
         self.validator = Validator()
         self.config = configparser.ConfigParser()
         self.config.read('config.ini')
+        self.records = []
+        self.resources = None
+        self.sru_bib_query = None
 
     def get_linked_records(self, record, marc_records, identifiers):
         """
@@ -47,9 +50,6 @@ class MARC21DataCollector:
         :param args: parameters that are passed to converter as command line arguments
         :param requested_ids: a set of local identifiers to be converted into ISNI request
         """ 
-        self.records = []
-        self.resources = None
-        self.sru_bib_query = None
         if args.resource_files:
             self.resources = ResourceList(args.resource_files, args.format).titles
         else:
@@ -97,7 +97,6 @@ class MARC21DataCollector:
             convertible_fields = ['110']
         else:
             convertible_fields = ['100', '110']
-
         isnis = {}
         identities = {}
         # identifiers of merged identities and identities without resources
@@ -337,8 +336,22 @@ class MARC21DataCollector:
                     if (args.created_after or args.modified_after) and record_id not in current_ids:
                         pass
                     else:
-                        self.api_search_resources(record_id)
+                        self.api_search_resources(record_id)                    
+                resources = []
                 resources = self.sort_resources(record_id, identity['established names'], identity['languageOfIdentity'])
+
+                # get resource information 
+                for field in record.get_fields('972'):
+                    resource = {} 
+                    for sf in field.get_subfields('a'):
+                        resource['title'] = sf
+                    for sf in field.get_subfields('z'):
+                        resource['identifiers'] = {'ISBN': [sf]}
+                    if resource:    
+                        resource['creationClass'] = None
+                        resource['creationRole'] = 'aut'
+                        resource['publisher'] = None
+                        resources.append(resource)
                 if resources:
                     identity['resource'] = resources           
                 else:
@@ -444,6 +457,7 @@ class MARC21DataCollector:
                 deletable_identities.remove(identifier)
 
         del_counter = 0
+
         for record_id in identities:
             if not 'resource' in identities[record_id]:
                 deletable_identities.add(record_id)
@@ -451,6 +465,7 @@ class MARC21DataCollector:
                 if not identities[record_id]['resource']:
                     deletable_identities.add(record_id)
                     del_counter += 1
+        
         logging.info("Number of discarded records without resources: %s"%del_counter) 
         logging.info("Number of identities to be converted: %s"%(len(identities) - len(deletable_identities)))
 
@@ -458,6 +473,9 @@ class MARC21DataCollector:
         for idx in deletable_identities:
             if idx in identities:
                 del(identities[idx]) 
+
+        if type(reader) in [MARCReader, aleph_seq_reader.AlephSeqReader]:
+            reader.close()
 
         return identities
 
@@ -932,7 +950,8 @@ class MARC21DataCollector:
                         d[sorting_key]==None,
                         d[sorting_key]))
 
-            return resources[:self.max_number_of_titles]
+            #return resources[:self.max_number_of_titles]
+        return resources[:self.max_number_of_titles]
 
     def write_isni_fields(self, isnis, args):
         """
@@ -942,35 +961,35 @@ class MARC21DataCollector:
         :param isnis: a dict cotaining local identifiers and assigned ISNIs
         :param args: command line arguments
         """
-        with io.open(args.output_isni_list, 'w', encoding = 'utf-8', newline='\n') as output:
+        with io.open(args.output_marc_fields, 'w', encoding = 'utf-8', newline='\n') as output:
             for record in self.records:
                 record_id = record['001'].data
                 if record_id in isnis:
-                    write_isni = True
+                    isni_changed = False
+                    isni_missing = True
+                    catalogued = False
+                    fields = []
                     isni = isnis[record_id]
                     for field in record.get_fields("CAT"):
                         for sf in field.get_subfields('a'):
                             if sf in self.cataloguers:
-                                write_isni = False
+                                catalogued = True
                     for field in record.get_fields("024"):
                         isni_found = False
                         if field['2'] and field['a']:
-                            if field['2'] == "isni" and field['a'] != isni:
-                                write_isni = True
-                    if write_isni:
-                        fields = []
-                        for field in record.get_fields("024"):
-                            isni_found = False
-                            if field['2'] and field['a']:
-                                if field['2'] == "isni":
-                                    isni_found = True
-                            if not isni_found:
-                                f = self.create_aleph_seq_field(record_id,
-                                                                field.tag,
-                                                                field.indicators[0],
-                                                                field.indicators[1],
-                                                                field.subfields)
-                                fields.append(f)
+                            if field['2'] == "isni":
+                                isni_found = True
+                                isni_missing = False
+                                if field['a'] != isni:
+                                    isni_changed = True
+                        if not isni_found:
+                            f = self.create_aleph_seq_field(record_id,
+                                                            field.tag,
+                                                            field.indicators[0],
+                                                            field.indicators[1],
+                                                            field.subfields)
+                            fields.append(f)
+                    if isni_changed or isni_missing or not catalogued:
                         for f in fields:
                             output.write(f + "\n")
                         output.write(record_id + " 0247  L $$a" + isni + "$$2isni\n")

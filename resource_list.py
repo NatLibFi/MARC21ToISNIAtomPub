@@ -51,7 +51,7 @@ class ResourceList:
                     continue
                 if record:
                     self.get_record_data(record)
-
+            reader.close()
         logging.info("Resource records from file %s read"%input_file)          
                         
     def get_record_data(self, record, search_id=None):
@@ -60,7 +60,6 @@ class ResourceList:
         :param record: bibliographical MARC21 record 
         :param search_id: get record information of only one author with this id
         """
-        print(record)
         title_of_work = {} 
         if record['001']:
             record_id = record['001'].data

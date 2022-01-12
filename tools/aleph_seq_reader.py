@@ -14,6 +14,9 @@ class AlephSeqReader:
     def __iter__(self):
         return self
     
+    def close(self):
+        self.file.close()
+
     def __next__(self):
         if self.current_line == '':
             raise StopIteration 
@@ -33,6 +36,10 @@ class AlephSeqReader:
                         for sf in field.get_subfields('a'):
                             if sf == "DELETED":
                                 return ""
+                # add identifier for testing
+                if not self.record['001']:
+                    field = Field(tag='001', data=current_id)
+                    self.record.add_ordered_field(field)
                 return self.record
                     
     def form_field(self, line):

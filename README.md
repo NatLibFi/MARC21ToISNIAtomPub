@@ -27,7 +27,7 @@ usage:
     -il, id_list: Path of text file containing local identifiers, one in every row, of records to be requested to ISNI requestor
     -irl, input_raport_list: Path of CSV file containing merge instructions for ISNI requests, formatted like file output_raport_list parsed from ISNI response
     -orl, output_raport_list: File name of CSV file raport for unsuccesful ISNI requests
-    -oil, output_isni_list: File name for Aleph sequential MARC21 fields 024 where received ISNI identifiers are written along existing identifiers
+    -omf, output_marc_fields: File name for Aleph sequential MARC21 fields 024 where received ISNI identifiers are written along existing identifiers
     -m, mode: Use string 'write' or 'send' to write requests into a directory or send them to ISNI
                
     Use config.ini for configurations:
