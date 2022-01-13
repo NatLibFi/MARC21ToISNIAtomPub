@@ -61,7 +61,7 @@ class Converter():
         parser.add_argument("-oil", "--output_marc_fields",
             help="File name for Aleph sequential MARC21 fields code 024 where received ISNI identifiers are written along recent identifiers")
         parser.add_argument("-m", "--mode",
-            help="Mode of program: Write requests into a directory or send them to ISNI", choices=['write', 'send'], required=True)
+            help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'send', 'test'], required=True)
         args = parser.parse_args()
         self.converter = None
         self.convert_to_atompub(args)
@@ -80,7 +80,7 @@ class Converter():
         self.sru_api_query = api_query.APIQuery(config_section=section,
                                       username=os.environ['ISNI_USER'],
                                       password=os.environ['ISNI_PASSWORD'])
-        if args.mode == "send":
+        if args.mode in ["send", "test"]:
             if args.output_raport_list:
                 self.raport_writer = xlsx_raport_writer.RaportWriter(args.output_raport_list)
             else:
@@ -190,9 +190,9 @@ class Converter():
             if xmlschema:
                 if not self.valid_xml(record_id, xml, xmlschema):
                     continue
-            if args.mode == "send":
+            if args.mode in ["send", "test"]:
                 logging.info("Sending record %s"%record_id)
-                response = self.send_xml(xml)
+                response = self.send_xml(xml, args.mode)
                 if 'possible matches' in response:
                     possible_matches = []
                     for pm in response['possible matches']:
@@ -209,7 +209,7 @@ class Converter():
                             if xmlschema:
                                 if not self.valid_xml(record_id, xml, xmlschema):
                                     sys.exit(2)
-                            response = self.send_xml(xml) 
+                            response = self.send_xml(xml, args.mode)
                             if 'possible matches' in response:
                                 response['error'] = 'Resubmit for record failed'
 
@@ -256,9 +256,18 @@ class Converter():
             xmlfile.write(bytes(xml, 'UTF-8'))
             xmlfile.close()
 
-    def send_xml(self, xml):
+    def send_xml(self, xml, mode):
+        """
+        :param xml: string converted XML elementtree in ISNI AtomPub format
+        :param mode: 'send' or 'test' to choose between ISNI production and accept database
+        """
         headers = {'Content-Type': 'application/atom+xml; charset=utf-8'}
-        section = self.config['ISNI ATOMPUB API']
+        if mode == 'send':
+            section = self.config['ISNI ATOMPUB API']
+        elif mode == 'test':
+            section = self.config['ISNI ATOMPUB TEST API']
+        else:
+            logging.error("Unknown sending mode in mode parameter %s"%mode)
         response = requests.post(section.get('baseurl'), data=xml.encode('utf-8'), headers=headers)
         xml = response.text
         parsed_response = parse_atompub_response.get_response_data_from_response_text(xml)
