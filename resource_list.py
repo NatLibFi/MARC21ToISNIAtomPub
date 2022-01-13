@@ -1,6 +1,5 @@
 import re
 import sys
-import os
 import logging
 import copy
 from term_encoder import TermEncoder
@@ -31,7 +30,7 @@ class ResourceList:
         self.validator = Validator()
         self.term_encoder = TermEncoder()
         self.titles = {}
-        
+
         if input_file:
             logging.info('Loading titles...')
             
@@ -52,8 +51,8 @@ class ResourceList:
                 if record:
                     self.get_record_data(record)
             reader.close()
-        logging.info("Resource records from file %s read"%input_file)          
-                        
+            logging.info("Resource records from file %s read"%input_file)
+
     def get_record_data(self, record, search_id=None):
         """
         Collects data for ISNI request from a bibliograpical MARC21 record 
@@ -121,15 +120,8 @@ class ResourceList:
                         if title_of_work['publisher'] and field['c']:
                             title_of_work['date'] = self.trim_year(field['c'])
         
-        """
-        valid identifiers for titles of work in ISNI: ISRC, ISWC, ISBN, ISSN, ISAN, ISTC, ISMN, DOI, OCN 
-        """
-        title_of_work['identifiers'] = {}
-        title_of_work['identifiers']['ISBN'] = self.get_identifiers("ISBN", record, '020', 'a')
-        title_of_work['identifiers']['ISSN'] = self.get_identifiers("ISSN", record, '022', 'a')
-        title_of_work['identifiers']['ISRC'] = self.get_identifiers("ISRC", record, '024', 'a', '0')
-        title_of_work['identifiers']['ISMN'] = self.get_identifiers("ISMN", record, '024', 'a', '2')
-                
+        title_of_work['identifiers'] = self.get_identifiers(record)
+
         #language code is needed for sorting titles:
         title_of_work['language'] = None
         for field in record.get_fields('041'):
@@ -198,33 +190,50 @@ class ResourceList:
                 else:
                     self.titles[author_id] = [title_copy]
     
-    def get_identifiers(self, identifier_type, record, field_code, subfield_code, indicator1 = " "):
+    def get_identifiers(self, record):
         """
-
-        :param identifier_type: Name of the identifier
+        Get resource identifiers from MARC21 fields
+        valid identifiers for titles of work in ISNI: ISRC, ISWC, ISBN, ISSN, ISAN, ISTC, ISMN, DOI, OCN
         :param record: MARC21 record
-        :param field_code: MARC field number from which identifier is fetched
-        :param subfield_code: MARC subfield code from which identifier is fetched
-        :param indicator1: first MARC field indicator, indicating identifier type
         """
-        identifierValues = []
-        for field in record.get_fields(field_code):
-            if field.indicators[0] == indicator1:
-                for sf in field.get_subfields(subfield_code):
-                    sf = sf.replace('-', '')
-                    valid = True
-                    if identifier_type == "ISBN":
-                        valid = self.validator.check_ISBN(sf)
-                    if identifier_type == "ISSN":
-                        valid = self.validator.check_ISSN(sf)
-                    if identifier_type == "ISRC":
-                        valid = self.validator.check_ISRC(sf)
-                    if not valid:
-                        logging.error("Invalid %s identifier in record: %s in field %s"%(identifier_type, record['001'].data, field))
+        identifier_values = {'ISBN': [], 'ISSN': [], 'ISRC': [], 'ISMN': [], 'DOI': []}
+        identifier_fields = ['020', '022', '024']
+        for tag in identifier_fields:
+            for field in record.get_fields(tag):
+                for sf in field.get_subfields('a'):
+                    if tag == '020':
+                        identifier_type = 'ISBN'
+                    if tag == '022':
+                        identifier_type = 'ISSN'
+                    if tag == '024':
+                        if field.indicators[0] == '0':
+                            identifier_type = 'ISRC'
+                        if field.indicators[0] == '2':
+                            identifier_type = 'ISMN'
+                        if field.indicators[0] == '7':
+                            if field['2']:
+                                if field['2'] == 'doi':
+                                    identifier_type = 'DOI'
+                    if identifier_type in ['ISBN', 'ISSN', 'ISRC']:
+                        sf = sf.replace('-', '')
+                        valid = False
+                        if identifier_type == 'ISBN':
+                            # same ISBN validation for ISMN
+                            valid = self.validator.check_ISBN(sf)
+                        if identifier_type == 'ISSN':
+                            valid = self.validator.check_ISSN(sf)
+                        if identifier_type == 'ISRC':
+                            valid = self.validator.check_ISRC(sf)
+                        if valid:
+                            identifier_values[identifier_type].append(sf)
+                        else:
+                            logging.error("Invalid %s in record: %s in field %s"%(identifier_type, record['001'].data, field))
                     else:
-                        identifierValue = sf.replace('-','')
-                        identifierValues.append(identifierValue)
-        return identifierValues            
+                        if identifier_type == 'ISMN':
+                            sf = sf.replace('-', '')
+                        identifier_values[identifier_type].append(sf)
+
+        return identifier_values
     
     def trim_year(self, year):
         """

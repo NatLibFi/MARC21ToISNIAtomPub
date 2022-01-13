@@ -7,14 +7,10 @@ import sys
 from unittest.mock import Mock
 from marc21_converter import MARC21Converter
 from converter import Converter
-from pymarc import MARCReader, Record, Field
 from tools import aleph_seq_reader 
 
 class MockArgs(object):
     pass
-
-
-
 
 class MARC21ConverterTest(unittest.TestCase):
 
