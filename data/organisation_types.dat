@@ -3,14 +3,22 @@ aikakauslehti;News Service
 aikuislukio;School (K12) or School District
 aikuisopisto;University or College
 ainejärjestö;Association or Society
+ajatushautomo;Other to be defined
 akatemia;Research project or research group
 alakoulu;School (K12) or School District
+alayksikkö;Other to be defined
+alioikeus;Government Agency or Department
+alue (hallintoalue);Other to be defined
 aluekeskus;Government Agency or Department
 aluesairaala;Hospital or Health Agency
 aluetaidemuseo;Museum or Historical Society
+alus;Other to be defined
+alusmaa;Other to be defined
 ammatillinen oppilaitos;University or College
 ammattikorkeakoulu;University or College
+ammattikorkeakoulun yksikkö;Other to be defined
 ammattikoulu;University or College
+ammattikunta;Other to be defined
 ammattiliitto;Not for Profit Organization
 ammattilinen oppilaitos;University or College
 ammattioppilaitos;University or College
@@ -18,15 +26,28 @@ ammattiyhdistys;Not for Profit Organization
 apteekki;Hospital or Health Agency
 arkisto;Archive or Special Collection
 arkistolaitos;Archive or Special Collection
+arkkitehtitoimisto;For Profit Corporation
+armeija;Other to be defined
+armeijakunta;Other to be defined
+asiamies (viranomainen);Government Agency or Department
+asiantuntijajärjestö;Association or Society
+asiantuntijakeskus;Other to be defined
+asiantuntijalaitos;Other to be defined
+asuinyhteisö;Association or Society
 asunto-osakeyhtiö;For Profit Corporation
 atk-keskus;Service Provider
+autolautta;Other to be defined
 autoliike;Retailer
 automuseo;Museum or Historical Society
 avaruusohjelma;Research project or research group
+avoin yliopisto;University or College
+baari;Other to be defined
 big band;Musical group or band
-divisioona;Other to be defined 
+blogi;Other to be defined
+divisioona;Other to be defined
 duo;Musical group or band
 eduskuntaryhmä;Government Agency or Department
+edustusto;Other to be defined
 elokuva-arkisto;Archive or Special Collection
 elokuvakerho;Association or Society
 eläinsairaala;Hospital or Health Agency
@@ -35,51 +56,75 @@ eläkelaitos;For Profit Corporation
 energialaitos;For Profit Corporation
 erikoiskirjasto;Academic Library
 erityiskoulu;School (K12) or School District
-Eurooppayhtiö;For Profit Corporation
-festivaali;Other to be defined 
+erityistuomioistuin;Government Agency or Department
+esikunta;Other to be defined
+esittäjäryhmä;Performing group
+eskadroona;Other to be defined
+etujärjestö;Association or Society
+festivaali;Other to be defined
 finanssiryhmä;For Profit Corporation
 galleria;Museum or Historical Society
 hallintoelin;Government Agency or Department
+hallintotuomioistuin;Government Agency or Department
+hallintovirasto;Government Agency or Department
+hallitus (toimielin);Government Agency or Department
+hallitus (valtion hallitus);Government Agency or Department
 hanke;Research project or research group
+harjoittelukoulu;School (K12) or School District
 harmonikkaorkesteri;Musical group or band
 harmonikkayhtye;Musical group or band
 harrastajateatteri;Performing group
-hiihtokeskus;Other to be defined 
-hiippakunta;Other to be defined 
-hiippakuntakokous;Other to be defined 
+harrastusryhmä;Association or Society
+henkikirjoittaja (viranomainen);Government Agency or Department
+henkilöyhtiö;For Profit Corporation
+hiihtokeskus;Other to be defined
+hiippakunta;Other to be defined
+hiippakuntakokous;Other to be defined
+hoitokunta;Other to be defined
 hoitolaitos;Hospital or Health Agency
 hotelli;For Profit Corporation
 huilukvartetti;Musical group or band
-huvipuisto;Other to be defined 
+huvipuisto;Other to be defined
 iltakoulu;School (K12) or School District
 iltalukio;School (K12) or School District
 instituutti;Research project or research group
 investointipankki;For Profit Corporation
-jaosto;Other to be defined 
-johtokunta;Other to be defined 
-johtoryhmä;Other to be defined 
+itsehallintoalue;Other to be defined
+jaosto;Other to be defined
+johtokunta;Other to be defined
+johtoryhmä;Other to be defined
+joukko-osasto;Other to be defined
 jousikvartetti;Musical group or band
+jousikvintetti;Musical group or band
 jousiorkesteri;Musical group or band
 jousitrio;Musical group or band
 jousiyhtye;Musical group or band
+julkaisija;Publisher
 julkaisupalvelu;Online Content Provider
 julkinen hallinto;Government Agency or Department
 julkinen osakeyhtiö;For Profit Corporation
+julkisoikeudellinen laitos;Government Agency or Department
+julkisoikeudellinen yhteisö;Association or Society
 julkisyhteisö;Not for Profit Organization
+järjestysoikeus;Government Agency or Department
 järjestö;Not for Profit Organization
 jätehuoltolaitos;For Profit Corporation
+jääkiekkoseura;Association or Society
 kaivos;For Profit Corporation
-kaivosalue;Other to be defined 
+kaivosalue;Other to be defined
 kalanviljelylaitos;For Profit Corporation
 kamarikuoro;Musical group or band
 kamariorkesteri;Musical group or band
 kamariyhtye;Musical group or band
+kanava;Other to be defined
 kansainvälinen järjestö;Not for Profit Organization
+kansainvälinen yhteisö;Association or Society
 kansakoulu;School (K12) or School District
 kansalaisopisto;University or College
 kansallisarkisto;Archive or Special Collection
 kansalliskirjasto;Academic Library
 kansamusiikkiyhtye;Musical group or band
+kansanedustuslaitos;Government Agency or Department
 kansanmusiikkiyhteisö;Musical group or band
 kansanmusiikkiyhtye;Musical group or band
 kansanopisto;University or College
@@ -87,93 +132,136 @@ kansantanssiyhtye;Performing group
 kansanteatteri;Performing group
 kanteleorkesteri;Musical group or band
 kanteleyhtye;Musical group or band
-kasvatuslaitos;Other to be defined 
+kasvatuslaitos;Other to be defined
+kaupanvahvistaja (viranomainen);Government Agency or Department
 kauppa;Retailer
+kauppahuone;For Profit Corporation
+kauppakamari;Other to be defined
 kauppakeskus;Retailer
 kauppaketju;Retailer
+kauppakomppania;For Profit Corporation
 kauppakorkeakoulu;University or College
 kauppala;Government Agency or Department
 kauppaoppilaitos;University or College
+kaupungin laitos;Other to be defined
+kaupungin liikelaitos;Other to be defined
 kaupunginarkisto;Archive or Special Collection
 kaupunginteatteri;Performing group
 kaupunki;Government Agency or Department
+kehittämiskeskus;Other to be defined
+kehittämisorganisaatio;Other to be defined
+kehitysverkosto;Other to be defined
+kehitysyhteistyö- ja avustusjärjestö;Not for Profit Organization
 kerho;Association or Society
 keskikoulu;School (K12) or School District
+keskinäinen vakuutusyhtiö;For Profit Corporation
+keskitysleiri;Other to be defined
 keskuskoulu;School (K12) or School District
-keskuslaitos;Other to be defined 
+keskuslaitos;Other to be defined
 keskuspankki;For Profit Corporation
 keskussairaala;Hospital or Health Agency
 keskusvirasto;Government Agency or Department
 kesäteatteri;Performing group
 kielikeskus;Research project or research group
-kierrätyskeskus;Other to be defined 
+kierrätyskeskus;Other to be defined
+kihlakunta;Other to be defined
 kiinteistöosakeyhtiö;For Profit Corporation
-kilparata;Other to be defined 
+kiinteistöyhtiö;For Profit Corporation
+kilparata;Other to be defined
 kilta;Association or Society
 kirjailijaryhmä;Association or Society
 kirjakauppa;Retailer
 kirjakerho;Retailer
 kirjallisuuspiiri;Association or Society
+kirjapaino;Other to be defined
 kirjasto;Library
 kirjoittajapiiri;Association or Society
 kirjoittajaryhmä;Association or Society
-kirkko;Other to be defined 
+kirkko (instituutio);Other to be defined
+kirkko;Other to be defined
+kirkkokunta;Other to be defined
 kirkkokuoro;Musical group or band
-kirkkoneuvosto;Other to be defined 
-kirkolliskokoukset;Other to be defined 
-kirkolliskokous;Other to be defined 
-kirkon hallinto;Other to be defined 
-kirkon hallintoelin;Other to be defined 
-kirkon toimielin;Other to be defined 
+kirkkoneuvosto;Other to be defined
+kirkollinen yhteisö;Association or Society
+kirkolliskokoukset;Other to be defined
+kirkolliskokous;Other to be defined
+kirkon hallinto;Other to be defined
+kirkon hallintoelin;Other to be defined
+kirkon toimielin;Other to be defined
+kirkon yksikkö;Other to be defined
 kitaraduo;Musical group or band
 kitarayhtye;Musical group or band
 klinikka (sairaalat);Hospital or Health Agency
 kokoelma;Archive or Special Collection
-kokous;Other to be defined 
-komitea;Other to be defined 
+kokous;Other to be defined
+kollektiivi;Association or Society
+komitea;Other to be defined
 kommandiittiyhtiö;For Profit Corporation
-komppania;Other to be defined 
+komppania;Other to be defined
 konepaja;For Profit Corporation
-konferenssi;Other to be defined 
+konferenssi;Other to be defined
+konkurssipesä;Other to be defined
 konserni;For Profit Corporation
+konservatorio;University or College
+konsortio;Consortium or Collaborative
 korkeakoulu;University or College
 korkeakoulukirjasto;Academic Library
+korkeakoulun laitos;University or College
+korkeakoulun yksikkö;University or College
+kosketinsoitinyhtye;Musical group or band
 kotimuseo;Museum or Historical Society
 kotiseutuarkisto;Archive or Special Collection
+kotiseutuyhdistys;Not for Profit Organization
 koulu;School (K12) or School District
 koululaitos;School (K12) or School District
+koululuokka;Other to be defined
 koulupiiri;School (K12) or School District
-koulutuskeskus;Other to be defined 
-Koulutusohjelma;Other to be defined 
-kriisikeskus;Other to be defined 
+koulutuskeskus;Other to be defined
+kouluyhteisö;Association or Society
+kreivikunta;Other to be defined
+kriisikeskus;Other to be defined
+kruununvouti (viranomainen);Government Agency or Department
 kulttuurihistoriallinen museo;Museum or Historical Society
 kulttuurijärjestö;Not for Profit Organization
-kulttuurikeskus;Other to be defined 
+kulttuurikeskus;Other to be defined
+kulttuuriyhdistys;Not for Profit Organization
+kunnallinen liikelaitos;Other to be defined
 kunnan toimielin;Government Agency or Department
 kunnanhallitus;Government Agency or Department
 kunta;Government Agency or Department
 kuntayhtymä;Government Agency or Department
+kuntoutuskeskus;Other to be defined
+kuolinpesä;Other to be defined
 kuoro;Musical group or band
-kurssi;Other to be defined 
-kurssikeskus;Other to be defined 
+kurssi;Other to be defined
+kurssikeskus;Other to be defined
 kustantaja;Publisher
 kustantamo;Publisher
 kuva-arkisto;Archive or Special Collection
-kuvataideoppilaitos;Other to be defined 
+kuvataideoppilaitos;Other to be defined
 kvartetti;Musical group or band
-käsikirjoituskokoelma;Other to be defined 
-laboratorio;Other to be defined 
-laitos;Other to be defined 
+kylätoimikunta;Other to be defined
+käsikirjoituskokoelma;Other to be defined
+kääntäjänkoulutuslaitos;University or College
+laboratorio;Other to be defined
 laitos (korkeakoulu);University or College
 laitos (sairaalat);Hospital or Health Agency
 laitos (sairaanhoitopiiri);Hospital or Health Agency
+laitos (yhtiöt);For Profit Corporation
 laitos (yliopistot);University or College
+laitos;Other to be defined
 laitoskirjasto;Academic Library
+laiva;Other to be defined
+laivue (ilmavoimat);Other to be defined
+laivue (merivoimat);Other to be defined
+laivue;Other to be defined
+lakiasiaintoimisto;For Profit Corporation
 lapsi- ja nuorisokuoro;Musical group or band
 lapsi- ja sekakuoro;Musical group or band
 lapsikuoro;Musical group or band
 lasitehdas;For Profit Corporation
 lastensairaala;Hospital or Health Agency
+lastensuojelulaitos;Government Agency or Department
 laulu- ja soitinyhtye;Musical group or band
 lauluduo;Musical group or band
 laulukvartetti;Musical group or band
@@ -181,25 +269,38 @@ lauluryhmä;Musical group or band
 lauluyhtye;Musical group or band
 laulyhtye;Musical group or band
 lautakunta;Government Agency or Department
-leikkikoulu;Other to be defined 
-leirikeskus;Other to be defined 
+leikkikoulu;Other to be defined
+leirikeskus;Other to be defined
+lennosto;Other to be defined
+lentoasema;Other to be defined
+lentue;Other to be defined
+levy-yhtiö;Publisher
 levykerho;Retailer
 levymerkki;Publisher
-levy-yhtiö;Publisher
 liikelaitos;For Profit Corporation
-liikennelaitos;Other to be defined 
-liikuntakeskus;Other to be defined 
+liikennelaitos;Other to be defined
+liikuntakeskus;Other to be defined
+linnake;Other to be defined
+lippue;Other to be defined
+lippukunta;Other to be defined
 lukio;School (K12) or School District
 luonnontieteellinen museo;Museum or Historical Society
-luontokeskus;Other to be defined 
+luontokeskus;Other to be defined
+luostari;Other to be defined
+luotsilaiva;Other to be defined
+luottolaitos;For Profit Corporation
 lyseo;School (K12) or School District
 lyömäsoitinyhtye;Musical group or band
 lähetystö;Government Agency or Department
 lääketehdas;For Profit Corporation
 lääkeyritys;For Profit Corporation
 lääkärikeskus;Hospital or Health Agency
+lääni;Other to be defined
+lääninhallitus;Government Agency or Department
 maahantuoja (soittimet);Importer
+maajoukkue;Other to be defined
 maakunta-arkisto;Archive or Special Collection
+maakunta;Other to be defined
 maakuntakirjasto;Library
 maakuntaliitto;Government Agency or Department
 maakuntamuseo;Museum or Historical Society
@@ -207,12 +308,15 @@ maalaiskunta;Government Agency or Department
 maatalouskauppa;For Profit Corporation
 maatalousoppilaitos;University or College
 mainostoimisto;For Profit Corporation
-matkailukeskus;Other to be defined 
+maistraatti;Government Agency or Department
+majakka;Other to be defined
+matkailukeskus;Other to be defined
 matkailuyritys;For Profit Corporation
 matkatoimisto;For Profit Corporation
 mediayhtiö;For Profit Corporation
 meijerioppilaitos;University or College
 merenkulkuoppilaitos;University or College
+merimieshuone;Other to be defined
 metsäkeskus;Government Agency or Department
 metsäoppilaitos;University or College
 metsästysseura;Association or Society
@@ -220,48 +324,59 @@ mielisairaala;Hospital or Health Agency
 mieskuoro;Musical group or band
 mieskvartetti;Musical group or band
 ministeriö;Government Agency or Department
-mts;
+ministeriön osasto;Government Agency or Department
+ministeriön yksikkö;Government Agency or Department
+muotoilukeskus;Other to be defined
 museo;Museum or Historical Society
 musiikkiarkisto;Archive or Special Collection
+musiikkiklubi;For Profit Corporation
 musiikkikustantaja;Publisher
 musiikkikustantamo;Publisher
 musiikkiliike;Retailer
 musiikkilukio;School (K12) or School District
 musiikkioppilaitokset;University or College
 musiikkioppilaitos;University or College
-musiikkiryhmä;Other to be defined 
+musiikkiryhmä;Other to be defined
 musiikkiteatteri;Performing group
 musiikkituotantoyhtiö;Producer
 myymälä;Retailer
 naiskuoro;Musical group or band
 neuvola;Hospital or Health Agency
-neuvosto;Other to be defined 
-neuvottelukunta;Other to be defined 
+neuvosto;Other to be defined
+neuvottelukunta;Other to be defined
+nimismies (viranomainen);Government Agency or Department
 nokkahuiluyhtye;Musical group or band
 nukketeatteri;Performing group
 nuorisokuoro;Musical group or band
 nuorisoseura;Not for Profit Organization
 nuortenkuoro;Musical group or band
-näyttely;Other to be defined 
-näyttelykeskus;Other to be defined 
-ohjelma;Other to be defined 
+näppäilysoitinyhtye;Musical group or band
+näyttely;Other to be defined
+näyttelykeskus;Other to be defined
+näyttelytila;Other to be defined
+ohjelma;Other to be defined
 ohjelmatoimisto;Agent
+oikeuslaitos;Government Agency or Department
 omakustantaja;Publisher
 ooppera;Musical group or band
+opettajankoulutuslaitos;University or College
+opetuskeskus;Other to be defined
 opintokerho;Association or Society
 opintokeskus;University or College
 opiskelijajärjestö;Not for Profit Organization
 opiskelijakunta;Not for Profit Organization
+opisto;University or College
+oppikoulu;School (K12) or School District
 oppilaitos;University or College
 oppilaskunta;Not for Profit Organization
-oppimateriaalikeskus;Other to be defined 
+oppimateriaalikeskus;Other to be defined
 oppimiskeskus;University or College
-organisaatio;Other to be defined 
+organisaatio;Other to be defined
 orkesteri;Musical group or band
-osaamiskeskus;Other to be defined 
+osaamiskeskus;Other to be defined
+osakaskunta;Other to be defined
 osakeyhtiö;For Profit Corporation
 osakunta;Not for Profit Organization
-osasto;Other to be defined 
 osasto (hallintoelimet);Government Agency or Department
 osasto (museot);Museum or Historical Society
 osasto (sairaalat);Hospital or Health Agency
@@ -269,170 +384,241 @@ osasto (tutkimuskeskukset);Research project or research group
 osasto (tutkimuslaitokset);Research project or research group
 osasto (tutkimuslaitos);Research project or research group
 osasto (yhtiöt);For Profit Corporation
+osasto;Other to be defined
+osavaltio;Other to be defined
 osuuskauppa;Retailer
 osuuskunta;For Profit Corporation
 osuusliike;For Profit Corporation
 osuuspankki;For Profit Corporation
-palokunta;Other to be defined 
-palvelukeskus;Other to be defined 
+paikallisviranomainen;Government Agency or Department
+paikkakunta (hallintoalue);Other to be defined
+palokunta;Other to be defined
+palvelukeskus;Other to be defined
 pankki;For Profit Corporation
-pappeinkokous;Other to be defined 
+pappeinkokous;Other to be defined
 parantola;Hospital or Health Agency
 partiolippukunta;Not for Profit Organization
-pataljoona;Other to be defined 
+pataljoona;Other to be defined
+patteri;Other to be defined
+patteristo;Other to be defined
 pelastuslaitos;Government Agency or Department
 pelimanniyhtye;Musical group or band
-perikunta;Other to be defined 
+perhekeskus;Other to be defined
+perikunta;Other to be defined
 peruskoulu;School (K12) or School District
 peruskoulun yläaste;School (K12) or School District
+pianokvartetti;Musical group or band
+pianokvintetti;Musical group or band
 pianotrio;Musical group or band
+piiri (hallintoalue);Government Agency or Department
 piirijärjestö;Not for Profit Organization
-piispainkokous;Other to be defined 
+piirikeskus;Other to be defined
+piirikunta;Other to be defined
+piispainkokous;Other to be defined
 poikakuoro;Musical group or band
-poliisilaitos;Other to be defined 
+poliisi (organisaatio);Government Agency or Department
+poliisi;Government Agency or Department
+poliisilaitos;Other to be defined
+poliisin yksikkö;Government Agency or Department
 poliittinen järjestö;Not for Profit Organization
 postilaitos;For Profit Corporation
-prikaati;Other to be defined 
-prikaatti;Other to be defined 
-projekti;Other to be defined 
-projektiyhtye;Other to be defined 
+prikaati;Other to be defined
+prikaatti;Other to be defined
+projekti;Other to be defined
+projektiyhtye;Other to be defined
+puhallinkvintetti;Musical group or band
 puhallinorkesteri;Musical group or band
 puhallinyhtye;Musical group or band
-puhelinluettelo;Other to be defined 
+puhelinluettelo;Other to be defined
 puolue;Not for Profit Organization
+puolueosasto;Other to be defined
+puolustusvoimien yksikkö;Other to be defined
+puupuhallinkvartetti;Musical group or band
+puupuhallinyhtye;Musical group or band
 puutarhaoppilaitos;University or College
-päiväkeskus;Other to be defined 
-päiväkoti;Other to be defined 
+päihdehuoltolaitos;Government Agency or Department
+päiväkeskus;Other to be defined
+päiväkoti;Other to be defined
 radioasema;Broadcaster
 radiokanava;Broadcaster
 radioteatteri;Broadcaster
-rahasto;Other to be defined 
-ratsuväki;Other to be defined 
+rahasto;Other to be defined
+rap-duo;Musical group or band
+ratsuväki;Other to be defined
+rautatieasema;Other to be defined
 ravintola;For Profit Corporation
+ritarikunta;Other to be defined
 rotaryjärjestö;Association or Society
+rovastikunta;Other to be defined
 ryhmä;Association or Society
-rykmentti;Other to be defined 
+rykmentti;Other to be defined
 sairaala;Hospital or Health Agency
+sairaalan yksikkö;Hospital or Health Agency
 sairaanhoito-oppilaitos;University or College
 sairaanhoitopiiri;Hospital or Health Agency
-Sali;Other to be defined 
 sanomalehti;News Service
+satama;Other to be defined
 sekakuoro;Musical group or band
-seminaari;Other to be defined 
+selvitysryhmä;Research project or research group
+seminaari;Other to be defined
+senaatti;Government Agency or Department
 seura;Association or Society
-seurakunta;Other to be defined 
-seurakuntayhtymä;Other to be defined 
-sihteeristö;Other to be defined 
+seurakunta;Other to be defined
+seurakuntayhtymä;Other to be defined
+sihteeristö;Other to be defined
 sinfoniaorkesteri;Musical group or band
+sisäoppilaitos;School (K12) or School District
 soitinryhmä;Musical group or band
 soitinyhtye;Musical group or band
 soittokunta;Musical group or band
+sosiaalihuoltolaitos;Government Agency or Department
 sosiaalipalvelu;Government Agency or Department
 sotasairaala;Hospital or Health Agency
-sotilaallinen organisaatio;Other to be defined 
+sotatuomioistuin;Government Agency or Department
+sotilaallinen organisaatio;Other to be defined
+sotilaallinen yksikkö;Other to be defined
 sotilasopetuslaitos;University or College
 sotilassairaala;Hospital or Health Agency
+sotilastukikohta;Other to be defined
+sotilasyksikkö;Other to be defined
 studio;Recording Agency
 sukuseura;Association or Society
+sähkölaitos;Other to be defined
 sähköyhtiö;For Profit Corporation
 säästöpankki;For Profit Corporation
-säätiö;Other to be defined 
-taidekeskus;Other to be defined 
+säätiö;Other to be defined
+taidekeskus;Other to be defined
 taidekirjasto;Library
 taidekokoelma;Archive or Special Collection
-taidekoti;Other to be defined 
+taidekoti;Other to be defined
 taidekoulu;University or College
 taidelukio;School (K12) or School District
 taidemuseo;Museum or Historical Society
 taiteilijaryhmä;Performing group
+taiteilijayhteisö;Association or Society
+talo (yhteisötyyppi);Other to be defined
 tanssiorkesteri;Musical group or band
 tanssiryhmä;Performing group
 tanssiteatteri;Performing group
-tapahtuma;Other to be defined 
+tapahtuma;Other to be defined
 teatteri;Performing group
 teatteriryhmä;Performing group
 tehdas;For Profit Corporation
-tekninen palvelu;Other to be defined 
+tekninen palvelu;Other to be defined
 teknologiakeskus;Research project or research group
 telakka;For Profit Corporation
-telelaitos;Other to be defined 
-teleoperaattori;Other to be defined 
+telelaitos;Other to be defined
+teleoperaattori;Other to be defined
 televisioasema;Broadcaster
 televisiokanava;Broadcaster
 televisioteatteri;Broadcaster
 televisioyhtiö;Broadcaster
 terveydenhuolto-oppilaitos;University or College
+terveydenhuoltolaitos;Hospital or Health Agency
 terveyskeskus;Hospital or Health Agency
 tiedekeskus;Research project or research group
 tiedekunta;University or College
-tiedotuskeskus;Other to be defined 
+tiedotuskeskus;Other to be defined
 tieteellinen kirjasto;Academic Library
-tietopalvelukeskus;Other to be defined 
+tietopalvelukeskus;Other to be defined
+tietopalveluyksikkö;Other to be defined
 toimielin;Government Agency or Department
 toimikunta;Government Agency or Department
 toiminimi;For Profit Corporation
-toimintakeskus;Other to be defined 
-toimisto;Other to be defined 
-toimitus;Other to be defined 
+toimintakeskus;Other to be defined
+toimisto;Other to be defined
+toimitus;Other to be defined
+tukipalvelu;Other to be defined
 tukkukauppa;Retailer
-tukkuliike;Retailer
 tukkuliike (viihde-elektroniikka);Retailer
+tukkuliike;Retailer
 tuomioistuin;Government Agency or Department
-tuomiokapituli;Other to be defined 
+tuomiokapituli;Other to be defined
+turvakoti/ensikoti;Other to be defined
 tutkijakoulu;Research project or research group
+tutkijaryhmä;Research project or research group
 tutkimusasema;Research project or research group
 tutkimuskeskus;Research project or research group
 tutkimuslaitos;Research project or research group
+tutkimusryhmä;Research project or research group
+tutkimusverkosto;Research project or research group
+tutkimusyhteisö;Research project or research group
+tutkimusyksikkö;Research project or research group
 tyttökoulu;School (K12) or School District
 tyttökuoro;Musical group or band
-työkeskus;Other to be defined 
-työryhmä;Other to be defined 
+työeläkevakuutusyhtiö;For Profit Corporation
+työkeskus;Other to be defined
+työlaitos;Other to be defined
+työpaja;Other to be defined
+työryhmä;Other to be defined
+työterveysyksikkö;Hospital or Health Agency
+työttömyyskassa;Other to be defined
 työväenopisto;University or College
 työväenteatteri;Performing group
+työyksikkö;Other to be defined
 täydennyskoulutuskeskus;University or College
 uhreiluseura;Association or Society
 ulkomuseo;Museum or Historical Society
-urheilukeskus;Other to be defined 
+unisonokuoro;Musical group or band
+urheilukeskus;Other to be defined
 urheiluopisto;University or College
 urheiluoppilaitos;University or College
 urheiluseura;Association or Society
-uskonnollinen järjestö;Other to be defined 
-uskonnollinen yhteisö;Other to be defined 
+uskonnollinen järjestö;Other to be defined
+uskonnollinen liike;Association or Society
+uskonnollinen yhdyskunta;Association or Society
+uskonnollinen yhteisö;Other to be defined
 uutissivusto;Discovery Platform or Service
+uutistoimisto;News service
 vakuutuskassa;For Profit Corporation
 vakuutuslaitos;For Profit Corporation
+vakuutusyhdistys;Other to be defined
 vakuutusyhtiö;For Profit Corporation
 valimo;For Profit Corporation
 valiokunta;Government Agency or Department
+valtio (hallintoalue);Other to be defined
 valtion hallinto;Government Agency or Department
 valtion laitos;Government Agency or Department
+valtion liikelaitos;Other to be defined
 valtionarkisto;Archive or Special Collection
+valtionyhtiö;Other to be defined
 valtuuskunta;Government Agency or Department
+valtuusto;Government Agency or Department
 vanhainkoti;Hospital or Health Agency
-varasto;Other to be defined 
+vanhustenhuoltolaitos;Government Agency or Department
+vankila;Other to be defined
+vankileiri;Other to be defined
+vapaaherrakunta;Other to be defined
+varasto;Other to be defined
 varastokirjasto;Library
-varuskunta;Other to be defined 
+varuskunta;Other to be defined
 vaskipuhallinyhtye;Musical group or band
-vastaanottokeskus;Other to be defined 
+vastaanottokeskus;Other to be defined
 verkkokauppa;Retailer
 verkosto;Consortium or Collaborative
+vesihuoltolaitos;Other to be defined
 vesilaitos;For Profit Corporation
 veteraaniyhdistys;Not for Profit Organization
+viemärilaitos;Other to be defined
 viihdeorkesteri;Musical group or band
 viljavarasto;For Profit Corporation
 viranomainen;Government Agency or Department
 virasto;Government Agency or Department
+voutikunta;Other to be defined
 vähittäiskauppa;Retailer
+yhdistyksen yksikkö;Not for Profit Organization
+yhdistys (julkisoikeudellinen);Not for Profit Organization
+yhdistys (rekisteröity);Not for Profit Organization
 yhdistys;Not for Profit Organization
 yhteiskoulu;School (K12) or School District
 yhteiskunnallinen liike;Not for Profit Organization
 yhteisö;Not for Profit Organization
 yhtiö;For Profit Corporation
-yhty;Musical group or band
+yhtiön yksikkö;For Profit Corporation
 yhtye;Musical group or band
 yhtymä;For Profit Corporation
-yksikkö;Other to be defined 
 yksikkö (museot);Museum or Historical Society
+yksikkö;Other to be defined
 yksiköt (yliopistot);University or College
 yksityinen elinkeinonharjoittaja;For Profit Corporation
 yleinen kirjasto;Public Library
@@ -440,11 +626,12 @@ yleisradioyhtiö;Broadcaster
 yliopisto;University or College
 yliopistokeskus;University or College
 yliopiston laitos;University or College
+yliopiston osasto;University or College
+yliopiston yksikkö;University or College
 yliopistosairaala;Hospital or Health Agency
 ylioppilaskunta;Not for Profit Organization
 ylioppilasteatteri;Performing group
 yläkoulu;School (K12) or School District
-ympäristökeskus;Other to be defined 
+ympäristökeskus;Other to be defined
 yritys;For Profit Corporation
-ääitysstudio;Recording Agency
 äänitysstudio;Recording Agency
