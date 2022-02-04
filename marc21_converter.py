@@ -45,7 +45,7 @@ class MARC21Converter:
                     marc_records.append(marc_record)
                     self.get_linked_records(marc_record, marc_records, identifiers)
 
-    def get_author_data(self, args, requested_ids):
+    def get_authority_data(self, args, requested_ids=set()):
         """
         :param args: parameters that are passed to converter as command line arguments
         :param requested_ids: a set of local identifiers to be converted into ISNI request
@@ -56,7 +56,7 @@ class MARC21Converter:
             self.resource_list = ResourceList()
             self.resources = self.resource_list.titles
             section = self.config['BIB SRU API']                      
-            self.sru_bib_query =  api_query.APIQuery(config_section=section)
+            self.sru_bib_query = api_query.APIQuery(config_section=section)
         reader = []
         current_ids = [] # for record identifiers of new records if keyword arg created_after is used (titles for modified records are not requested)  
         if not args.authority_files:
@@ -65,14 +65,17 @@ class MARC21Converter:
             if requested_ids:
                 for identifier in requested_ids: 
                     identifiers.append(identifier)
-            elif args.modified_after or args.created_after:
+            elif args.modified_after or args.created_after or args.until:
                 section = self.config['AUT OAI-PMH API']                      
                 oai_pmh_query =  api_query.APIQuery(config_section=section)
+                query_parameters = {}
                 if args.modified_after:
-                    parameters = {'from': args.modified_after}
-                if args.created_after:
-                    parameters = {'from': args.created_after}
-                response = oai_pmh_query.api_search(parameters=parameters)
+                    query_parameters = {'from': args.modified_after}
+                elif args.created_after:
+                    query_parameters = {'from': args.created_after}
+                if args.until:
+                    query_parameters.update({'until': args.until})
+                response = oai_pmh_query.api_search(parameters=query_parameters)
                 identifiers = parse_oai_response.get_identifiers(response)
             else:
                 logging.error("Command line argument modified_after recuired if authority file not given")
@@ -90,7 +93,7 @@ class MARC21Converter:
                     self.get_linked_records(record, marc_records, linked_identifiers)
                     current_ids.extend(linked_identifiers)
                 reader.extend(marc_records)
-        self.max_number_of_titles = args.max_number
+        self.max_number_of_titles = int(self.config['SETTINGS'].get('max_titles'))
         if args.identity_types == "persons":
             convertible_fields = ['100']
         elif args.identity_types == "organisations":
@@ -428,7 +431,7 @@ class MARC21Converter:
                 relation_dict_type = "person relation types"
             if identities[record_id]['identityType'] == 'organisation':
                 relation_dict_type = "organisation relation types" 
-            deletable_relations = []  
+            deletable_relations = []
             for idx, related_name in enumerate(identities[record_id]['isRelated']): 
                 relationType = related_name['relationType']
                 relationType = self.term_encoder.encode_term(relationType, relation_dict_type)
@@ -437,13 +440,13 @@ class MARC21Converter:
                         related_name['identityType'] == 'organisation'):
                         if not related_name['relationType']:
                             related_name['relationType'] = "undefined or unknown"
-                    else:
+                    elif idx not in deletable_relations:
                         deletable_relations.append(idx)
                 else:
                     related_name['relationType'] = relationType            
                 # delete merged organisation names from related names 
                 if 'identifier' in related_name:
-                    if related_name['identifier'] in not_requested_ids:
+                    if related_name['identifier'] in not_requested_ids and idx not in deletable_relations:
                         deletable_relations.append(idx)
 
             deletable_relations.reverse()
@@ -460,6 +463,8 @@ class MARC21Converter:
 
         for record_id in identities:
             if not 'resource' in identities[record_id]:
+                deletable_identities.add(record_id)
+            elif (args.created_after or args.modified_after) and record_id not in current_ids:
                 deletable_identities.add(record_id)
             else:
                 if not identities[record_id]['resource']:
@@ -483,7 +488,7 @@ class MARC21Converter:
         """
         Get identifiers of organisations predecessors and successors for ISNI isNot element
         :param record_id: organisatio record's identifier
-        :param identities: a dict of identity data gathered by get_author_data function
+        :param identities: a dict of identity data gathered by get_authority_data function
         """
         if record_id in identities:
             for related_name in identities[record_id]['isRelated']:
@@ -881,6 +886,9 @@ class MARC21Converter:
             if response_records:         
                 records.extend(response_records)       
             number = parse_sru_response.get_number_of_records(response)
+        max_number = int(self.config['BIB SRU API'].get('total_records'))
+        if number > max_number:
+            number = max_number
         record_position += 50
         while (record_position - 1 < number):
             additional_parameters = {'maximumRecords': '50', 'startRecord': str(record_position)}
@@ -900,8 +908,6 @@ class MARC21Converter:
         """
         # TODO: remove established_names parameter after batch load
         resources = []
-        
-        #if self.resources:
         if identity_id in self.resources:
             resources.extend(self.resources[identity_id])
         for name in established_names:
@@ -950,7 +956,6 @@ class MARC21Converter:
                         d[sorting_key]==None,
                         d[sorting_key]))
 
-            #return resources[:self.max_number_of_titles]
         return resources[:self.max_number_of_titles]
 
     def write_isni_fields(self, isnis, args):
