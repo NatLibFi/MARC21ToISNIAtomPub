@@ -275,11 +275,14 @@ class MARC21Converter:
                         identifier = field['a']
                         if field['2'] in ["viaf", "orcid", "wikidata"]:
                             identifier_type = field['2'].upper()     
-                            if field['2'] == "orcid":               
-                                identifier = identifier.replace('https://orcid.org/', '')
+                            if field['2'] == "orcid":
+                                identifier = self.validator.check_ORCID(field['a'])
+                                if not identifier:
+                                    logging.error("ORCID %s: invalid in record %s"%(field['a'], record_id))
                             elif field['2'] == "wikidata":               
                                 identifier = identifier.replace('https://www.wikidata.org/wiki/', '')
-                            identifiers[identifier_type] = identifier
+                            if identifier:
+                                identifiers[identifier_type] = identifier
                         elif field['2'] == "isni":
                             identity['ISNI'] = identifier
                             isnis[record_id] = identifier

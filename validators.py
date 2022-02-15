@@ -112,7 +112,30 @@ class Validator:
         if not re.match('^[A-Z0-9]+$', isrc[2:5]):
             return False
         return True
-                
+
+    def check_ORCID(self, orcid):
+        orcid = orcid.replace('https://orcid.org/', '')
+        pattern = re.compile(r'\d{4}-\d{4}-\d{4}-\d{3}[0-9X]')
+        if not pattern.fullmatch(orcid):
+            return None
+        numbers = orcid.replace('-', '')
+        if len(numbers) != 16:
+            return None
+        checksum = numbers[15]
+        if checksum == "X":
+            checksum = "10"
+        numbers = numbers[:15]
+        if not numbers.isdigit() or not checksum.isdigit():
+            return None
+        sum = 0
+        for n in numbers:
+            sum = (sum * 2) + int(n)
+        sum = (sum * 2) + int(checksum)
+        if sum % 11 == 1:
+            return orcid
+        else:
+            return None
+
     def format_year(self, year):
         if year.isdigit():
             if len(year) < 4:
