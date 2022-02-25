@@ -41,12 +41,23 @@ class ISNI_notification_checker():
                 self.identifiers = self.get_ids_from_notifications(file_info['root'])
             elif file_info['type'] == 'report':
                 self.identifiers = self.get_assigned_isnis(file_info['root'])
+        self.isni_ids = {'ISNI': {}, 'PPN': {}}
+        self.ppns = {}
+        self.local_ids = {}
+        for id in self.identifiers:
+            for id_type in self.identifiers[id]:
+                if self.identifiers[id][id_type]:
+                    for isni in self.identifiers[id][id_type]:
+                        if not isni in self.isni_ids[id_type]:
+                            self.isni_ids[id_type][isni] = set()
+                        self.isni_ids[id_type][isni].add(id)
         config = configparser.ConfigParser()
         config.read('config.ini')
-        section = config['ISNI SRU API']                      
-        self.api_query = api_query.APIQuery(config_section=section,
-                                      username=os.environ['ISNI_USER'],
-                                      password=os.environ['ISNI_PASSWORD'])
+        section = config['ISNI SRU API']
+        if self.args.update:
+            self.api_query = api_query.APIQuery(config_section=section,
+                                          username=os.environ['ISNI_USER'],
+                                          password=os.environ['ISNI_PASSWORD'])
         
     def get_assigned_isnis(self, root):
         """
@@ -98,11 +109,22 @@ class ISNI_notification_checker():
                 isni_id = isni_id.replace('ISNI', '')
                 isni_id = isni_id.replace(' ', '')
             for id in local_ids:
-                if id in identifiers:
-                    if isni_id in identifiers[id]:
-                        logging.warning("Multiple isnis %s for same record %s"%(identifiers[id], id))
-                else:
-                    identifiers[id] = {'ISNI': isni_id}
+                if id not in identifiers:
+                    identifiers[id] = {'ISNI': set(), 'PPN': set()}
+                if isni_id:
+                    if identifiers[id]['ISNI'] and isni_id not in identifiers[id]['ISNI']:
+                        logging.error("Multiple ISNIs %s for same record %s"
+                        %(identifiers[id], id))
+                    identifiers[id]['ISNI'].add(isni_id)
+                if ppn:
+                    if identifiers[id]['PPN'] and ppn not in identifiers[id]['PPN']:
+                        logging.error("Multiple ISNIs %s for same record %s"
+                        %(identifiers[id], id))
+                    identifiers[id]['PPN'].add(ppn)
+        for id in identifiers:
+            if identifiers[id]['ISNI'] and identifiers[id]['PPN']:
+                logging.error("Record %s has PPN and ISNI identifier"%(id))
+
         return identifiers
                       
     def get_ids_from_reports(self, root):
@@ -163,17 +185,18 @@ class ISNI_notification_checker():
 
         for id in identifiers:
             if identifiers[id]["ISNI"] and identifiers[id]["PPN"]:
-                logging.error("The contributor's record is assigned and not assigned: %s"%id) 
+                logging.error("Record %s has PPN and ISNI identifier"%id)
         return identifiers
 
     def check_identifiers(self):
         """
         reads ISNI bulk report records from ISNI notifacations XML file
         """ 
-        asteri_ids = set()
+        local_ids = set()
         reader = aleph_seq_reader.AlephSeqReader(open(self.args.input_path, 'r', encoding="utf-8"))
         record_id = None
         record = ""
+        records = []
 
         while record is not None:
             try:
@@ -183,7 +206,8 @@ class ISNI_notification_checker():
             if record:
                 if record['001']:
                     record_id = record['001'].data
-                    asteri_ids.add(record['001'].data)
+                    local_ids.add(record['001'].data)
+                    records.append(record)
                 else:
                     continue
             else:
@@ -191,25 +215,41 @@ class ISNI_notification_checker():
 
         current_ids = {}
         isnis = {}
+        for id_type in self.isni_ids:
+            for id in self.isni_ids[id_type]:
+                if len(self.isni_ids[id_type][id]) > 1:
+                    for local_id in self.isni_ids[id_type][id]:
+                        if local_id not in local_ids:
+                            logging.error("Local id %s for %s identifier %s not found"
+                            %(local_id, id_type, id))
+                    logging.error("Multiple local identifiers %s for %s identifier %s"
+                    %(self.isni_ids[id_type][id], id_type, id))
         for id in self.identifiers:
-            if id in asteri_ids:
-                notified_isni = self.identifiers[id]['ISNI']
+            if id in local_ids:
+                notified_isnis = self.identifiers[id]['ISNI']
                 if self.args.update:
                     response = self.api_query.get_data_with_local_identifiers("NLFIN", id, "FI-ASTERI-N")
                     current_isni = parse_sru_response.get_isni(response)
                     if current_isni in isnis:
-                        logging.warning("Duplicate local identifiers: %s, %s in ISNI %s"%(isnis[current_isni], id, current_isni))
+                        logging.warning("Duplicate local identifiers: %s, %s in ISNI %s"
+                        %(isnis[current_isni], id, current_isni))
                     else:
                         isnis[current_isni] = [id]
                     if current_isni != notified_isni:
-                        logging.warning("ISNI %s for record %s changed"%(current_isni, id))
+                        logging.warning("ISNI %s for record %s changed"
+                        %(current_isni, id))
                 else:
-                    if notified_isni:
-                        isnis[notified_isni] = id
-    
+                    if notified_isnis:
+                        if len(notified_isnis) > 1:
+                            logging.error("Local id %s has multiple ISNI identifiers %s"
+                            %(id, notified_isnis))
+                        elif len(notified_isnis) == 1:
+                            next(iter(notified_isnis))
+                            notified_isni = next(iter(notified_isnis))
+                            isnis[notified_isni] = id
         for isni in isnis:
             current_ids[isnis[isni]] = isni
-        self.write_isni_fields(current_ids)
+        self.write_isni_fields(current_ids, records)
 
     def check_file_type(self, file_path):
         # Note: succesful typo
@@ -229,7 +269,7 @@ class ISNI_notification_checker():
             else: 
                 logging.error('File %s is not an ISNI XML file'%file_path)
         
-    def write_isni_fields(self, isnis):
+    def write_isni_fields(self, isnis, records):
         """
         writes ISNI identifiers into Aleph Sequential format
         :param input_path: original MARC21 records in Aleph Sequential format
@@ -244,20 +284,9 @@ class ISNI_notification_checker():
         elif self.args.format == "alephseq":                     
             reader = aleph_seq_reader.AlephSeqReader(open(self.args.input_path, 'r', encoding="utf-8"))
         record_id = None
-        record = ""
 
-        while record is not None:
-            try:
-                record = next(reader, None)     
-            except Exception as e:
-                logging.exception(e) 
-            if record:
-                if record['001']:
-                    record_id = record['001'].data
-                else:
-                    continue
-            else:
-                continue
+        for record in records:
+            record_id = record['001'].data
             if record_id in isnis:
                 isni = isnis[record_id]
                 fields = []
@@ -271,10 +300,15 @@ class ISNI_notification_checker():
                                     isni_found = True
                                 else:
                                     false_match = True
-                                    logging.error("ISNI %s changed to %s for record %s"%(isni, field['a'], record_id))
+                                    logging.error("ISNI %s changed to %s for record %s"
+                                    %(field['a'], isni, record_id))
                     if not false_match:
                         if self.args.format == "alephseq":
-                            f = self.create_aleph_seq_field(record_id, field.tag, field.indicators[0], field.indicators[1], field.subfields)
+                            f = self.create_aleph_seq_field(record_id,
+                                                            field.tag,
+                                                            field.indicators[0],
+                                                            field.indicators[1],
+                                                            field.subfields)
                             fields.append(f)
                         if self.args.format == "marc21":
                             field.append(field)                            
