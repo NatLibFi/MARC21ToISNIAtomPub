@@ -341,7 +341,7 @@ class MARC21Converter:
                 if not args.resource_files:
                     if (args.created_after or args.modified_after) and record_id not in current_ids:
                         pass
-                    else:
+                    elif record_id not in self.resource_list.titles:
                         self.api_search_resources(record_id)                    
                 resources = []
                 resources = self.sort_resources(record_id, identity['established names'], identity['languageOfIdentity'])
