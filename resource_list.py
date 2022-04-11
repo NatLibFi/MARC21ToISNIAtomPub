@@ -132,7 +132,7 @@ class ResourceList:
                     else:
                         logging.error("Invalid language code in record: %s"%record_id)
             else:
-                #TODO: pick only the first language code if multiple subfields with same code? 
+                # Note: multiple subfields with language codes possible
                 if field['a']:
                     if self.validator.valid_language_code(field['a']):
                         title_of_work['language'] = field['a']
@@ -141,32 +141,17 @@ class ResourceList:
                  
         #fields in prefence order when adding creation roles:
         name_fields = ['100', '110', '700', '710']
-        # TODO: matching with authors and works is done with names and ids in batch load
         # when matching is done with ids only, rewrite this section
         authors = {}
         #only one creation role (function) for one author:
         for tag in name_fields:
             for field in record.get_fields(tag):
-                # TODO: temporary code to remove g subfields with "ennakkotieto"
-                if field['g'] and not field['0']:
-                    continue
                 role = CREATION_ROLES[tag]
                 function_code = None
                 author_id = None
                 for sf in field.get_subfields('0'):
                     #remove parenthesis and text inside, e. g. "(FIN11)":
                     author_id = re.sub("[\(].*?[\)]", "", sf)
-                # TODO: remove this section after batch load
-                if not author_id:
-                    author_id = ""
-                    subfield_codes = ['a', 'b', 'c', 'd', 'q']
-                    for sc in subfield_codes:
-                        for sf in field.get_subfields(sc):
-                            if sf.endswith(","):
-                                sf = sf[:-1]
-                            author_id += sf
-                    if author_id.endswith("."):
-                        author_id = author_id[:-1]
                
                 if author_id and author_id not in authors:
                     #only one creation role possible in ISNI, the first subfield e is chosen
@@ -201,6 +186,7 @@ class ResourceList:
         for tag in identifier_fields:
             for field in record.get_fields(tag):
                 for sf in field.get_subfields('a'):
+                    identifier_type = None
                     if tag == '020':
                         identifier_type = 'ISBN'
                     if tag == '022':
@@ -214,24 +200,25 @@ class ResourceList:
                             if field['2']:
                                 if field['2'] == 'doi':
                                     identifier_type = 'DOI'
-                    if identifier_type in ['ISBN', 'ISSN', 'ISRC']:
-                        sf = sf.replace('-', '')
-                        valid = False
-                        if identifier_type == 'ISBN':
-                            # same ISBN validation for ISMN
-                            valid = self.validator.check_ISBN(sf)
-                        if identifier_type == 'ISSN':
-                            valid = self.validator.check_ISSN(sf)
-                        if identifier_type == 'ISRC':
-                            valid = self.validator.check_ISRC(sf)
-                        if valid:
-                            identifier_values[identifier_type].append(sf)
-                        else:
-                            logging.error("Invalid %s in record: %s in field %s"%(identifier_type, record['001'].data, field))
-                    else:
-                        if identifier_type == 'ISMN':
+                    if identifier_type:
+                        if identifier_type in ['ISBN', 'ISSN', 'ISRC']:
                             sf = sf.replace('-', '')
-                        identifier_values[identifier_type].append(sf)
+                            valid = False
+                            if identifier_type == 'ISBN':
+                                # same ISBN validation for ISMN
+                                valid = self.validator.check_ISBN(sf)
+                            if identifier_type == 'ISSN':
+                                valid = self.validator.check_ISSN(sf)
+                            if identifier_type == 'ISRC':
+                                valid = self.validator.check_ISRC(sf)
+                            if valid:
+                                identifier_values[identifier_type].append(sf)
+                            else:
+                                logging.error("Invalid %s in record: %s in field %s"%(identifier_type, record['001'].data, field))
+                        else:
+                            if identifier_type == 'ISMN':
+                                sf = sf.replace('-', '')
+                            identifier_values[identifier_type].append(sf)
 
         return identifier_values
     

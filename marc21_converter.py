@@ -190,19 +190,6 @@ class MARC21Converter:
                 identity['identityType'] = 'personOrFiction'
                 personal_name = self.get_personal_name(record_id, record['100'])      
 
-                # TODO: remove this temp section used for matching bibliographical records when bib records have been linked to authority records:
-                subfield_codes = ['a', 'b', 'c', 'd', 'q']
-                name = ""
-                for field in record.get_fields('100'):
-                    for sc in subfield_codes:
-                        for sf in field.get_subfields(sc):
-                            if sf.endswith(","):
-                                sf = sf[:-1]
-                            name += sf
-                if name.endswith("."):
-                    name = name[:-1]
-                identity['established names'] = [name]
-
                 if not personal_name:
                     del(identities[record_id])
                 else:
@@ -237,21 +224,7 @@ class MARC21Converter:
                         # check for duplicate names:
                         if not any(pnv['surname'] == fn['surname'] and pnv['forename'] == fn['forename'] for pnv in identity['personalNameVariant']):
                             identity['personalNameVariant'].append({'nameUse': 'public', 'surname': fn['surname'], 'forename': fn['forename']})
-            elif record['110']:
-            
-                # TODO: remove this temp section used for matching bibliographical records after batch load:
-                subfield_codes = ['a', 'b', 'c', 'd']
-                name = ""
-                for field in record.get_fields('110'):
-                    for sc in subfield_codes:
-                        for sf in field.get_subfields(sc):
-                            if sf.endswith(","):
-                                sf = sf[:-1]
-                            name += sf
-                if name.endswith("."):
-                    name = name[:-1]    
-                identity['established names'] = [name]
-                
+            elif record['110']:                
                 identity['identityType'] = 'organisation'
                 organisation_name = self.get_organisation_name(record['110'], record)
                 if not organisation_name:
@@ -336,15 +309,13 @@ class MARC21Converter:
                             for sf in field.get_subfields("u"):
                                 uris.append(sf) 
                 identity['URI'] = uris
-                #identity['resource'] = self.sort_resources(record_id, identity['languageOfIdentity'])  
-                # TODO: use line above instead of line below after all authority records are linked to bibliographical records with id 
                 if not args.resource_files:
                     if (args.created_after or args.modified_after) and record_id not in current_ids:
                         pass
                     elif record_id not in self.resource_list.titles:
                         self.api_search_resources(record_id)                    
                 resources = []
-                resources = self.sort_resources(record_id, identity['established names'], identity['languageOfIdentity'])
+                resources = self.sort_resources(record_id, identity['languageOfIdentity'])
 
                 # get resource information 
                 for field in record.get_fields('972'):
@@ -523,8 +494,7 @@ class MARC21Converter:
             del(merged_identity['usageDateFrom'])
         if 'usageDateTo' in merged_identity:
             del(merged_identity['usageDateTo'])
-        # TODO: remove 'established names' parameter when not needed anymore 
-        self.sort_resources(identifier, merged_identity['established names'], merged_identity['languageOfIdentity'])
+        self.sort_resources(identifier, merged_identity['languageOfIdentity'])
         return merged_identity 
 
     def get_linked_ids(self, identities, related_id, identifiers, mergeable_relations):
@@ -826,8 +796,7 @@ class MARC21Converter:
         date_subfields = ['f', 'g', 'q', 'r', 's', 't']
 
         for df in date_subfields:
-            for d in field.get_subfields(df):
-                # TODO: '"circa" meaning within a few (how many -is it 5?) years"'      
+            for d in field.get_subfields(df):    
                 is_valid = False
                 # year in format YYYY, YYYY-MM, YYYY-MM-DD"
                 pattern = re.compile(r'-?\d{4}-\d{2}-\d{2}|-?\d{4}-\d{2}|-?\d{4}')
@@ -903,19 +872,15 @@ class MARC21Converter:
             if record:
                 self.resource_list.get_record_data(record, identity_id) 
 
-    def sort_resources(self, identity_id, established_names, languages=None):
+    def sort_resources(self, identity_id, languages=None):
         """
         :param identity_id: identifier of identity
         :param languages: a list of languages of identity in relevance order
         return a list of titles of work with a maximum item number defined in instance variable
         """
-        # TODO: remove established_names parameter after batch load
         resources = []
         if identity_id in self.resources:
             resources.extend(self.resources[identity_id])
-        for name in established_names:
-            if name in self.resources:
-                resources.extend(self.resources[name])
         if resources:
             mergeable_resources = []
             for idx1 in range(len(resources)):
