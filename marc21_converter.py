@@ -33,17 +33,19 @@ class MARC21Converter:
         :param records: list of recursively gathered MARC21 records
         :param identifiers: list of identifiers of linked organisation records
         """
-        for field in record.get_fields('510'):
-            linked_identifier = None
-            if field['0']:
-                linked_identifier = re.sub("[\(].*?[\)]", "", field['0'])
-                if linked_identifier not in identifiers:
-                    identifiers.add(linked_identifier)
-                    parameters = {'doc_num': linked_identifier}
-                    response = self.oai_x_query.api_search(parameters=parameters)
-                    marc_record = parse_oai_response.get_records(response)[0]
-                    marc_records.append(marc_record)
-                    self.get_linked_records(marc_record, marc_records, identifiers)
+        tags = ['500', '510']
+        for tag in tags:
+            for field in record.get_fields(tag):
+                linked_identifier = None
+                if field['0']:
+                    linked_identifier = re.sub("[\(].*?[\)]", "", field['0'])
+                    if linked_identifier not in identifiers:
+                        identifiers.add(linked_identifier)
+                        parameters = {'doc_num': linked_identifier}
+                        response = self.oai_x_query.api_search(parameters=parameters)
+                        marc_record = parse_oai_response.get_records(response)[0]
+                        marc_records.append(marc_record)
+                        self.get_linked_records(marc_record, marc_records, identifiers)
 
     def get_authority_data(self, args, requested_ids=set()):
         """
@@ -88,7 +90,7 @@ class MARC21Converter:
                 marc_records = []
                 record = parse_oai_response.get_records(response)[0]
                 marc_records.append(record)
-                if record['110'] and record['001']:
+                if record['001']:
                     linked_identifiers = {record['001'].data}
                     self.get_linked_records(record, marc_records, linked_identifiers)
                     current_ids.extend(linked_identifiers)
