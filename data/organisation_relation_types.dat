@@ -25,26 +25,26 @@ laterName;laterName
 no relation;no relation
 no relation;no relation
 Paikallinen tytäryhtiö;
-Perustaja;
+Perustaja;isRelatedTo
 Perustajayhteisö;
 Perustanut yhteisön;
 Pääjohtaja;see also from
 see also from;see also from
 see also from;see also from
-Seuraaja;
-Sulautunut yhteisö;
-Sulautunut yhteisöön;
-Sulautunut yhtiöön;
+Seuraaja;isSupersededBy
+Sulautunut yhteisö;supersedes
+Sulautunut yhteisöön;isSupersededBy
+Sulautunut yhtiöön;isSupersededBy
 supersedes;supersedes
 undefined or unknown;undefined or unknown
 Yhdistymisestä muodostunut yhteisö;
 Yhdistymisestä muodostunut;
-Yhdistynyt yhteisö;
-Yhdistynyt yhteisöön;
-Yhdistynyt;
-Yhteisön jäsenyhteisö;
-Yhteisön laajempi jäsenyhteisö;
-Yhteisön perustama yhteisö;
-Yhteisön perustanut yhteisö;
-Yhteisöön sulautunut;
-Yhteisöön yhdistynyt;
+Yhdistynyt yhteisö;supersedes
+Yhdistynyt yhteisöön;isSupersededBy
+Yhdistynyt;isSupersededBy
+Yhteisön jäsenyhteisö;hasMember
+Yhteisön laajempi jäsenyhteisö;hasMember
+Yhteisön perustama yhteisö;isRelatedTo
+Yhteisön perustanut yhteisö;isRelatedTo
+Yhteisöön sulautunut;supersedes
+Yhteisöön yhdistynyt;supersedes
