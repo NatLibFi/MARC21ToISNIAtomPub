@@ -1,0 +1,74 @@
+<?xml version="1.0" ?>
+<Request>
+        <identityInformation>
+                <requestorIdentifierOfIdentity>
+                        <identifier>(FI-ASTERI-N)0000000002</identifier>
+                </requestorIdentifierOfIdentity>
+                <identity>
+                        <personOrFiction>
+                                <personalName>
+                                        <nameUse>public</nameUse>
+                                        <surname>Meikäläinen</surname>
+                                        <forename>Matti</forename>
+                                        <numeration>III</numeration>
+                                        <nameTitle>prof.</nameTitle>
+                                </personalName>
+                                <birthDate>1900</birthDate>
+                                <deathDate>2000</deathDate>
+                                <dateType>circa</dateType>
+                                <resource>
+                                        <creationClass>am</creationClass>
+                                        <creationRole>aut</creationRole>
+                                        <titleOfWork>
+                                                <title>Second Title of Work</title>
+                                                <isrc>01001001010</isrc>
+                                                <isrc>010101010</isrc>
+                                                <imprint>
+                                                        <publisher>PUBLISHER NAME</publisher>
+                                                        <date>1990</date>
+                                                </imprint>
+                                        </titleOfWork>
+                                </resource>
+                        </personOrFiction>
+                </identity>
+                <countriesAssociated>
+                        <countryCode>AX</countryCode>
+                </countriesAssociated>
+                <countriesAssociated>
+                        <countryCode>FI</countryCode>
+                </countriesAssociated>
+                <externalInformation>
+                        <URI>https://fi.wikipedia.org/</URI>
+                </externalInformation>
+                <externalInformation>
+                        <URI>https://www.fi</URI>
+                </externalInformation>
+        </identityInformation>
+        <isNot identityType="personOrFiction">
+                <relationName>
+                        <ISNI>0000000119405488</ISNI>
+                </relationName>
+        </isNot>
+        <isRelated identityType="organisation">
+                <relationType>isMemberOf</relationType>
+                <relationName>
+                        <ISNI>0000000119405488</ISNI>
+                        <organisationName>
+                                <mainName>DFG</mainName>
+                                <subdivisionName>H</subdivisionName>
+                        </organisationName>
+                </relationName>
+                <startDateOfRelationship>1900</startDateOfRelationship>
+                <endDateOfRelationship>2000</endDateOfRelationship>
+        </isRelated>
+        <isRelated identityType="personOrFiction">
+                <relationType>co-author</relationType>
+                <relationName>
+                        <personalName>
+                                <nameUse>public</nameUse>
+                                <surname>Smith</surname>
+                                <forename>S</forename>
+                        </personalName>
+                </relationName>
+        </isRelated>
+</Request>

@@ -13,6 +13,7 @@ import requests
 from datetime import datetime
 from isni_request import create_xml
 from marc21_converter import MARC21Converter
+from gramex_converter import GramexConverter
 from tools import parse_atompub_response
 from tools import parse_sru_response
 from tools import xlsx_raport_writer
@@ -26,39 +27,37 @@ class Converter():
     def __init__(self):
         parser = argparse.ArgumentParser(description="ISNI AtomPub Conversion program")
         parser.add_argument("-f", "--format",
-            help="File format", choices=['marc21', 'alephseq'])
-        parser.add_argument("-af", "--authority_files",  
+            help="File format", choices=['marc21', 'alephseq', 'gramex'], required=True)
+        parser.add_argument("-a", "--authority_files",
             help="File containing identity data")
-        parser.add_argument("-rf", "--resource_files",  
+        parser.add_argument("-r", "--resource_files", 
             help="File containing titles of works of authors")
-        parser.add_argument("-od", "--output_directory",  
+        parser.add_argument("-d", "--output_directory",
             help="Output directory for ISNI AtomPub XML files")
-        parser.add_argument("-vf", "--validation_file",  
+        parser.add_argument("-v", "--validation_file",
             help="Enter file path of ISNI Atom Pub Request XSD file to validate XML requests")
-        parser.add_argument("-log", "--log_file",
-            help="Output file for error logging")
-        parser.add_argument("-id", "--identifier",  
+        parser.add_argument("-i", "--identifier",
             help="Identifiers of the database of requestor, e. g. FI-ASTERI-N", required=True)
-        parser.add_argument("-max", "--max_number", type=int,
-            help="Maximum number of titles for one identity")
-        parser.add_argument("-c", "--concat",
+        parser.add_argument("-c", "--concat", action='store_true',
             help="Concatenate XML request into one file")
-        parser.add_argument("-dm", "--dirmax", type=int,
+        parser.add_argument("-D", "--dirmax", type=int,
             help="Number of output XML files in one directory, default 100")
-        parser.add_argument("-it", "--identity_types",
+        parser.add_argument("-t", "--identity_types",
             help="Restrict requested records either to persons or organisations", choices=['persons', 'organisations'])
+        parser.add_argument("-u", "--until",
+            help="Request records created or modified before the set date formatted YYYY-MM-DD")
         input_group = parser.add_mutually_exclusive_group()
-        input_group.add_argument("-ma", "--modified_after",  
+        input_group.add_argument("-M", "--modified_after",
             help="Request records modified or created on or after the set date formatted YYYY-MM-DD")
-        input_group.add_argument("-ca", "--created_after",  
+        input_group.add_argument("-C", "--created_after",
             help="Request records created on or after the set date formatted YYYY-MM-DD")
-        input_group.add_argument("-il", "--id_list",  
+        input_group.add_argument("-l", "--id_list",
             help="Path of text file containing local identifiers, one in every row, of records to be requested to ISNI requestor")
-        input_group.add_argument("-irl", "--input_raport_list",  
+        input_group.add_argument("-I", "--input_raport_list",
             help="Path of CSV file containing merge instructions for ISNI requests")
-        parser.add_argument("-orl", "--output_raport_list",  
+        parser.add_argument("-R", "--output_raport_list",
             help="File name of CSV file raport for unsuccesful ISNI requests")
-        parser.add_argument("-oil", "--output_marc_fields",
+        parser.add_argument("-O", "--output_marc_fields",
             help="File name for Aleph sequential MARC21 fields code 024 where received ISNI identifiers are written along recent identifiers")
         parser.add_argument("-m", "--mode",
             help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'send', 'test'], required=True)
@@ -100,13 +99,6 @@ class Converter():
             logging.error("Using authority_files or resource_files command line arguments but argument format is missing.")
             sys.exit(2)
 
-        loglevel = logging.INFO
-        if args.log_file:
-            handler = logging.FileHandler(args.log_file, 'w', 'utf-8') # or whatever
-            logger = logging.getLogger()
-            logger.setLevel(loglevel)
-            logger.addHandler(handler)
-            logger.propagate = False
         logging.info("Conversion started: %s"%datetime.now().replace(microsecond=0).isoformat())
 
         requested_ids = set()
@@ -136,10 +128,13 @@ class Converter():
                         for col in ws.iter_cols(min_row=row[0].row, max_row=row[0].row, min_col=6, max_col=ws.max_column):
                             if col[0].value:
                                 merge_instructions[local_id]['identifiers'].append(str(col[0].value).strip())
-                                requested_ids.add(local_id)
+                        requested_ids.add(local_id)
 
-        self.converter = MARC21Converter()
-        records = self.converter.get_author_data(args, requested_ids)
+        if args.format in ['marc21', 'alephseq']:
+            self.converter = MARC21Converter()
+        if args.format == 'gramex':
+            self.converter = GramexConverter()
+        records = self.converter.get_authority_data(args, requested_ids)
         concat = False
         xmlschema = None
         dirmax = 100
@@ -163,7 +158,7 @@ class Converter():
         isnis = {}
         for record_id in records:
             merge_instruction = None
-            merge_identifiers = None
+            merge_identifiers = []
             if merge_instructions:
                 if record_id not in merge_instructions:
                     continue

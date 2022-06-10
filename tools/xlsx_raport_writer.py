@@ -42,12 +42,12 @@ class RaportWriter():
                                 for value in values:
                                     name += value + " "
         cells.append(name.strip())
-        if record_data['ISNI']:
+        if 'ISNI' in record_data:
             cells.append(record_data['ISNI'])
         else:
             cells.append('')
-        if 'isni' in response:
-            if record_data['ISNI']:
+        if response.get('isni'):
+            if record_data.get('ISNI'):
                 if response['isni'].replace(' ', '') != record_data['ISNI']:
                     cells.append('eri ISNI')
                     cells.append('')
@@ -57,7 +57,7 @@ class RaportWriter():
                 del cells[-1]
                 cells.append(response['isni'])
                 self.write_response('ISNIt', cells)
-        elif 'possible matches' in response:
+        elif response.get('possible matches'):
             cells.append(response['reason'])
             cells.append('')
             for pm in response['possible matches']:
@@ -65,10 +65,10 @@ class RaportWriter():
                 if 'evaluation score' in pm:
                     cells.append(pm['evaluation score'])
             self.write_response('epäonnistuneet', cells)
-        elif 'error' in response:
+        elif response.get('error'):
             cells.extend(response['error'])
             self.write_response('epäonnistuneet', cells)
-        elif 'reason' in response:
+        elif response.get('reason'):
             cells.append(response['reason'])
             self.write_response('epäonnistuneet', cells)
             

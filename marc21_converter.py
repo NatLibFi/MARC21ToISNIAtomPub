@@ -7,6 +7,7 @@ from tools import parse_sru_response
 from tools import parse_oai_response
 from pymarc import MARCReader
 from tools import aleph_seq_reader  
+import copy
 import io
 import json
 import re
@@ -51,7 +52,7 @@ class MARC21Converter:
         """
         :param args: parameters that are passed to converter as command line arguments
         :param requested_ids: a set of local identifiers to be converted into ISNI request
-        """ 
+        """
         if args.resource_files:
             self.resources = ResourceList(args.resource_files, args.format).titles
         else:
@@ -80,7 +81,7 @@ class MARC21Converter:
                 response = oai_pmh_query.api_search(parameters=query_parameters)
                 identifiers = parse_oai_response.get_identifiers(response)
             else:
-                logging.error("Command line argument modified_after recuired if authority file not given")
+                logging.error("Command line argument modified_after required if authority file not given")
                 sys.exit(2)
             section = self.config['AUT X API']                      
             self.oai_x_query = api_query.APIQuery(config_section=section)                                           
@@ -241,8 +242,8 @@ class MARC21Converter:
                     identity['organisationType'] = self.get_organisation_type(record)   
             if record_id in identities:
                 identifiers = {}
-                identity['otherIdentifierOfIdentity'] = []
                 identity['ISNI'] = None
+                identity['otherIdentifierOfIdentity'] = []
                 for field in record.get_fields('024'):
                     identifier_type = None
                     identifier = None
@@ -362,7 +363,6 @@ class MARC21Converter:
                         if identifier in not_requested_ids:
                             data[identifier]['delete'] = True
                     merged_id_clusters.append(data)  
-        merge_counter = 0
 
         for cluster in merged_id_clusters:
             for cluster_id in cluster:
@@ -527,50 +527,35 @@ class MARC21Converter:
         relation_fields = ['373', '500', '510']
         for rf in relation_fields:
             for field in record.get_fields(rf):
-                identityType = None
                 relationType = None
-                organisationName = None
-                personalName = None
-                startDateOfRelationship = None
-                endDateOfRelationship = None
                 # identifies is not an ISNI data element, but local identifier of the related record 
                 # converted to ISNI identifier later if possible 
-                identifier = None 
-
+                related_name = {}
                 if field.tag == "373" and record['100']:
-                    identityType = "organisation"
-                    relationType = "isAffiliatedWith"
+                    related_name['identityType'] = "organisation"
+                    related_name['relationType'] = "isAffiliatedWith"
                     for sf in field.get_subfields("s"):
                         if pattern.fullmatch(sf):
-                            startDateOfRelationship = sf
+                            related_name['startDateOfRelationship'] = sf
                     for sf in field.get_subfields("t"):
                         if pattern.fullmatch(sf):
-                            endDateOfRelationship = sf
+                            related_name['endDateOfRelationship'] = sf
                 
                     for name in field.get_subfields("a"):
-                        organisationName = {"mainName": name}
-                        related_names.append({
-                            "identityType": identityType,
-                            "relationType": relationType,
-                            "organisationName": organisationName,
-                            "personalName": personalName,
-                            "startDateOfRelationship": startDateOfRelationship,
-                            "endDateOfRelationship": endDateOfRelationship
-                        })
-            
+                        related_name['organisationName'] = {"mainName": name}
+                        copied_name = copy.copy(related_name)
+                        related_names.append(copied_name)
                 elif field.tag == "500" or field.tag == "510":
-                    id = record['001'].data
                     if field.tag == "500":
-                        identityType = "personOrFiction"
-                        personalName = self.get_personal_name(id, field)
+                        related_name['identityType'] = "personOrFiction"
+                        related_name['personalName'] = self.get_personal_name(id, field)
                     if field.tag == "510":
-                        identityType = "organisation"
-                        organisationName = self.get_organisation_name(field, record)
+                        related_name['identityType'] = "organisation"
+                        related_name['organisationName'] = self.get_organisation_name(field, record)
                     if field['0']:
-                        identifier = re.sub("[\(].*?[\)]", "", field['0'])
+                        related_name['identifier'] = re.sub("[\(].*?[\)]", "", field['0'])
                     for sf in field.get_subfields("i"):
-                        relationType = sf
-                        relationType = relationType.replace(":", "")
+                        relationType = sf.replace(":", "")
                     if record['110']:
                         for sf in field.get_subfields("w"):
                             if sf == "a":
@@ -583,16 +568,10 @@ class MARC21Converter:
                             relationType = "undefined or unknown"
                     if record['100'] and not relationType:
                         relationType = "undefined or unknown"
-                    if relationType and (personalName or organisationName):
-                        related_names.append({
-                            "identifier": identifier,
-                            "identityType": identityType,
-                            "relationType": relationType,
-                            "organisationName": organisationName,
-                            "personalName": personalName,
-                            "startDateOfRelationship": startDateOfRelationship,
-                            "endDateOfRelationship": endDateOfRelationship
-                        })
+                    if relationType:
+                        related_name['relationType'] = relationType
+                        related_names.append(related_name)
+
         return related_names
 
     def get_organisation_type(self, record):   
