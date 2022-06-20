@@ -85,6 +85,7 @@ class MARC21Converter:
                 sys.exit(2)
             section = self.config['AUT X API']                      
             self.oai_x_query = api_query.APIQuery(config_section=section)                                           
+            requested_ids.update(identifiers)
             for identifier in identifiers:
                 parameters = {'doc_num': identifier}
                 response = self.oai_x_query.api_search(parameters=parameters)
@@ -95,7 +96,8 @@ class MARC21Converter:
                     linked_identifiers = {record['001'].data}
                     self.get_linked_records(record, marc_records, linked_identifiers)
                     current_ids.extend(linked_identifiers)
-                reader.extend(marc_records)
+                    reader.extend(marc_records)
+
         self.max_number_of_titles = int(self.config['SETTINGS'].get('max_titles'))
         if args.identity_types == "persons":
             convertible_fields = ['100']
@@ -119,9 +121,11 @@ class MARC21Converter:
             else:
                 logging.error("Not valid format to convert from: "%args.format)
                 sys.exit(2)
-        record_id = None
+        
         record = ""
+
         while record is not None:
+            record_id = None
             if args.authority_files:
                 try:
                     record = next(reader, None)    
@@ -135,24 +139,21 @@ class MARC21Converter:
             if record:
                 if record['001']:
                     record_id = record['001'].data
-                else:
-                    continue
-            else:
+            if not record_id or not any(record[f] for f in convertible_fields):
+                if record_id:
+                    requested_ids.remove(record_id)
                 continue
-            
-            if not any(record[f] for f in convertible_fields):
-                continue
-            if requested_ids and record_id not in requested_ids:
-                related_identities.add(record_id)
-                deletable_identities.add(record_id)
-                
             test = False
             for field in record.get_fields('STA'):
                 for sf in field.get_subfields('a'):
                     if sf == "TEST":
                         test = True
-            if test:          
+            if test:
+                requested_ids.remove(record_id)
                 continue
+            if requested_ids and record_id not in requested_ids:
+                related_identities.add(record_id)
+                deletable_identities.add(record_id)
             self.records.append(record)
             for field in record.get_fields('983'):
                 for sf in field.get_subfields('a'): 
@@ -312,14 +313,7 @@ class MARC21Converter:
                             for sf in field.get_subfields("u"):
                                 uris.append(sf) 
                 identity['URI'] = uris
-                if not args.resource_files:
-                    if (args.created_after or args.modified_after) and record_id not in current_ids:
-                        pass
-                    elif record_id not in self.resource_list.titles:
-                        self.api_search_resources(record_id)                    
-                resources = []
-                resources = self.sort_resources(record_id, identity['languageOfIdentity'])
-
+                identity['resource'] = []
                 # get resource information 
                 for field in record.get_fields('972'):
                     resource = {} 
@@ -331,11 +325,7 @@ class MARC21Converter:
                         resource['creationClass'] = None
                         resource['creationRole'] = 'aut'
                         resource['publisher'] = None
-                        resources.append(resource)
-                if resources:
-                    identity['resource'] = resources           
-                else:
-                    identity['resource'] = []
+                        self.resources[record_id].append(resource)
 
         merged_ids = []
         merged_id_clusters = []
@@ -364,6 +354,7 @@ class MARC21Converter:
                             data[identifier]['delete'] = True
                     merged_id_clusters.append(data)  
 
+        clustered_ids = {}
         for cluster in merged_id_clusters:
             for cluster_id in cluster:
                 for other_id in cluster:
@@ -377,12 +368,32 @@ class MARC21Converter:
                                     not_requested_ids.update([cluster_id, other_id])
                                 elif not cluster[cluster_id]['delete']:
                                     cluster[cluster_id]['merge'].add(other_id)
+                                    # id added for requesting merged record catalogue:
+                                    if not cluster_id in clustered_ids:
+                                        clustered_ids[cluster_id] = set()
+                                    clustered_ids[cluster_id].add(other_id)
+                                    if not other_id in clustered_ids:
+                                        clustered_ids[other_id] = set() 
+                                    clustered_ids[other_id].add(cluster_id)
                         if cluster[other_id]['ISNI']:
                             if cluster[cluster_id]['ISNI'] != cluster[other_id]['ISNI']:
                                 cluster[cluster_id]['isNot'].add(cluster[other_id]['ISNI'])
+        resource_ids = set()
+        for record_id in requested_ids:
+            resource_ids.add(record_id)
+            if record_id in clustered_ids:
+                resource_ids.union(clustered_ids[record_id])
+        
+        for record_id in resource_ids:
+            if not args.resource_files:
+                if (args.created_after or args.modified_after) and record_id not in current_ids:
+                    pass
+                elif record_id not in self.resource_list.titles:
+                    self.api_search_resources(record_id)
+            if record_id in identities:
+                identities[record_id]['resource'] = self.sort_resources(record_id, identity['languageOfIdentity'])
 
         for cluster in merged_id_clusters:
-            number = 0
             for cluster_id in cluster:
                 if cluster[cluster_id]['delete'] and cluster[cluster_id]['merge']:
                     logging.error("Record %s has related identities with same ISNI, but lacking 983 field"%cluster_id)
@@ -392,7 +403,6 @@ class MARC21Converter:
                 if cluster_id not in not_requested_ids:
                     identities[cluster_id] = self.merge_identities(cluster_id, cluster[cluster_id]['merge'], identities) 
                     identities[cluster_id]['isNot'] = cluster[cluster_id]['isNot']
-
         for record_id in identities:
             if not 'isNot' in identities[record_id]:
                 identities[record_id]['isNot'] = []
@@ -438,7 +448,7 @@ class MARC21Converter:
         del_counter = 0
 
         for record_id in identities:
-            if not 'resource' in identities[record_id]:
+            if not identities[record_id].get('resource'):
                 deletable_identities.add(record_id)
             elif (args.created_after or args.modified_after) and record_id not in current_ids:
                 deletable_identities.add(record_id)
