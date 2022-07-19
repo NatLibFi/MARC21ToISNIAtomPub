@@ -143,12 +143,16 @@ class MARC21Converter:
                 if record_id:
                     requested_ids.remove(record_id)
                 continue
-            test = False
+            removable = False
+            for field in record.get_fields('075'):
+                for sf in field.get_subfields('a'):
+                    if sf == "ei-RDA-entiteetti":
+                        removable = True
             for field in record.get_fields('STA'):
                 for sf in field.get_subfields('a'):
-                    if sf == "TEST":
-                        test = True
-            if test:
+                    if sf in ["TEST", "DELETED"]:
+                        removable = True
+            if removable:
                 requested_ids.remove(record_id)
                 continue
             if requested_ids and record_id not in requested_ids:
