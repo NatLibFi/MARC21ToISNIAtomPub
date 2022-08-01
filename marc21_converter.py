@@ -23,7 +23,7 @@ class MARC21Converter:
         self.validator = Validator()
         self.config = configparser.ConfigParser()
         self.config.read('config.ini')
-        self.records = []
+        self.records = {}
         self.resources = None
         self.sru_bib_query = None
 
@@ -158,7 +158,7 @@ class MARC21Converter:
             if requested_ids and record_id not in requested_ids:
                 related_identities.add(record_id)
                 deletable_identities.add(record_id)
-            self.records.append(record)
+            self.records[record_id] = record
             for field in record.get_fields('983'):
                 for sf in field.get_subfields('a'): 
                     if sf == "ei-isni-loadi-ed":
@@ -930,37 +930,36 @@ class MARC21Converter:
         :param args: command line arguments
         """
         with io.open(args.output_marc_fields, 'w', encoding = 'utf-8', newline='\n') as output:
-            for record in self.records:
-                record_id = record['001'].data
-                if record_id in isnis:
-                    isni_changed = False
-                    isni_missing = True
-                    catalogued = False
-                    fields = []
-                    isni = isnis[record_id]
-                    for field in record.get_fields("CAT"):
-                        for sf in field.get_subfields('a'):
-                            if sf in self.cataloguers:
-                                catalogued = True
-                    for field in record.get_fields("024"):
-                        isni_found = False
-                        if field['2'] and field['a']:
-                            if field['2'] == "isni":
-                                isni_found = True
-                                isni_missing = False
-                                if field['a'] != isni:
-                                    isni_changed = True
-                        if not isni_found:
-                            f = self.create_aleph_seq_field(record_id,
-                                                            field.tag,
-                                                            field.indicators[0],
-                                                            field.indicators[1],
-                                                            field.subfields)
-                            fields.append(f)
-                    if isni_changed or isni_missing or not catalogued:
-                        for f in fields:
-                            output.write(f + "\n")
-                        output.write(record_id + " 0247  L $$a" + isni + "$$2isni\n")
+            for record_id in isnis:
+                record = self.records[record_id]
+                isni_changed = False
+                isni_missing = True
+                catalogued = False
+                fields = []
+                isni = isnis[record_id]
+                for field in record.get_fields("CAT"):
+                    for sf in field.get_subfields('a'):
+                        if sf in self.cataloguers:
+                            catalogued = True
+                for field in record.get_fields("024"):
+                    isni_found = False
+                    if field['2'] and field['a']:
+                        if field['2'] == "isni":
+                            isni_found = True
+                            isni_missing = False
+                            if field['a'] != isni:
+                                isni_changed = True
+                    if not isni_found:
+                        f = self.create_aleph_seq_field(record_id,
+                                                        field.tag,
+                                                        field.indicators[0],
+                                                        field.indicators[1],
+                                                        field.subfields)
+                        fields.append(f)
+                if isni_changed or isni_missing or not catalogued:
+                    for f in fields:
+                        output.write(f + "\n")
+                    output.write(record_id + " 0247  L $$a" + isni + "$$2isni\n")
     
     def create_aleph_seq_field(self, record_id, tag, indicator_1, indicator_2, subfields):
         """
