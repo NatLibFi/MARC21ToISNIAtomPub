@@ -318,17 +318,28 @@ class MARC21Converter:
                                 uris.append(sf) 
                 identity['URI'] = uris
                 identity['resource'] = []
-                # get resource information 
-                for field in record.get_fields('972'):
-                    resource = {} 
+                # get resource information
+                for field in record.get_fields('670'):
+                    resource = {}
                     for sf in field.get_subfields('a'):
-                        resource['title'] = sf
-                    for sf in field.get_subfields('z'):
-                        resource['identifiers'] = {'ISBN': [sf]}
+                        if "ENNAKKOTIEDOT-ISNI:" in sf and "(ISBN:" in sf:
+                            sf = sf.split("(ISBN:")
+                            title = sf[0].replace("ENNAKKOTIEDOT-ISNI:", "").strip()
+                            isbn = sf[1].replace("(ISBN:", "")
+                            if isbn.endswith(")"):
+                                resource['identifiers'] = {'ISBN': [isbn[:-1].strip()]}
+                                resource['title'] = title
+                                resource['date'] = None
+                                resource['language'] = None
+                                resource['role'] = 'author'
+                            else:
+                                logging.error("Field %s malformatted in record: %s"%(field, record_id))
                     if resource:    
                         resource['creationClass'] = None
                         resource['creationRole'] = 'aut'
                         resource['publisher'] = None
+                        if not record_id in self.resources:
+                            self.resources[record_id] = []
                         self.resources[record_id].append(resource)
 
         merged_ids = []
@@ -450,7 +461,6 @@ class MARC21Converter:
                 deletable_identities.remove(identifier)
 
         del_counter = 0
-
         for record_id in identities:
             if not identities[record_id].get('resource'):
                 deletable_identities.add(record_id)

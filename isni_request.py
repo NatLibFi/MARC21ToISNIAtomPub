@@ -7,6 +7,7 @@ import os.path
 Data collected from a record and used in create_xml function:
 
 identifier (requestor's own identifier)
+otherIdentifierOfIdentity = [{'identifier', 'type'}]
 identityType = 'personalName' / 'organisationName'
 isRelated = [{'identityType = 'organisation' / 'personOrFiction',
               'relationType' ("consult ISNI data element values.doc"],
@@ -93,7 +94,7 @@ def create_resources(root, resource_data):
             titleOfWork = ET.SubElement(resource, 'titleOfWork')
             create_subelement(titleOfWork, r, 'title')
         
-        if r['identifiers']['ISRC']:
+        if r['identifiers'].get('ISRC'):
             for identifier in r['identifiers']['ISRC']:
                 isrc = ET.SubElement(titleOfWork, 'isrc')
                 isrc.text = identifier
