@@ -61,7 +61,16 @@ class MARC21Converter:
             section = self.config['BIB SRU API']                      
             self.sru_bib_query = api_query.APIQuery(config_section=section)
         reader = []
-        current_ids = [] # for record identifiers of new records if keyword arg created_after is used (titles for modified records are not requested)  
+        # for record identifiers of new records if keyword arg created_after is used (titles for modified records are not requested)
+        current_ids = []
+        # identifiers of identities linked to requested identities
+        linked_ids = []
+        deletable_identities = set()
+        # these two sets for the case when requested_ids parameter is used,
+        # id not in requested_ids but merged with requested_ids
+        related_identities = set()
+        not_requested_ids = set()
+
         if not args.authority_files:
             logging.info("Requesting authority records with API")
             identifiers = []
@@ -95,7 +104,7 @@ class MARC21Converter:
                 if record['001']:
                     linked_identifiers = {record['001'].data}
                     self.get_linked_records(record, marc_records, linked_identifiers)
-                    current_ids.extend(linked_identifiers)
+                    linked_ids.extend(linked_identifiers - {record['001'].data})
                     reader.extend(marc_records)
 
         self.max_number_of_titles = int(self.config['SETTINGS'].get('max_titles'))
@@ -107,12 +116,6 @@ class MARC21Converter:
             convertible_fields = ['100', '110']
         isnis = {}
         identities = {}
-        # identifiers of merged identities and identities without resources
-        deletable_identities = set()
-        # these two sets for the case when requested_ids parameter is used,
-        # id not in requested_ids but merged with requested_ids
-        related_identities = set() 
-        not_requested_ids = set()
         if not reader:
             if args.format == "marc21":
                 reader = MARCReader(open(args.authority_files, 'rb'), to_unicode=True)
@@ -121,7 +124,7 @@ class MARC21Converter:
             else:
                 logging.error("Not valid format to convert from: "%args.format)
                 sys.exit(2)
-        
+
         record = ""
 
         while record is not None:
@@ -139,6 +142,8 @@ class MARC21Converter:
             if record:
                 if record['001']:
                     record_id = record['001'].data
+                    if args.authority_files:
+                        requested_ids.add(record_id)
             if not record_id or not any(record[f] for f in convertible_fields):
                 if record_id:
                     requested_ids.remove(record_id)
@@ -395,10 +400,15 @@ class MARC21Converter:
                                 cluster[cluster_id]['isNot'].add(cluster[other_id]['ISNI'])
         resource_ids = set()
         for record_id in requested_ids:
-            resource_ids.add(record_id)
+            if args.created_after or args.modified_after:
+            #if record_id in current_ids or record_id in related_identities:
+                if record_id in current_ids or record_id in linked_ids:
+                    resource_ids.add(record_id)
+            else:
+                resource_ids.add(record_id)
             if record_id in clustered_ids:
                 resource_ids.union(clustered_ids[record_id])
-        
+
         for record_id in resource_ids:
             if not args.resource_files:
                 if (args.created_after or args.modified_after) and record_id not in current_ids:
@@ -761,12 +771,13 @@ class MARC21Converter:
                 tags = ['110', '410']
                 for tag in tags:
                     for name_field in record.get_fields(tag):
-                        name = name_field['a']
-                        if name.endswith('.'):
-                            name = name[:-1]
-                        name = re.sub("[\(].*?[\)]", "", name)
-                        name = name.strip()
-                        main_names.append(name)
+                        for sf in name_field.get_subfields('a'):
+                            name = sf
+                            if name.endswith('.'):
+                                name = name[:-1]
+                            name = re.sub("[\(].*?[\)]", "", name)
+                            name = name.strip()
+                            main_names.append(name)
                 if "(" in sf and ")" in sf:
                     name = re.search('\(([^)]+)', sf).group(1)
                     specifier_name = name.strip()
