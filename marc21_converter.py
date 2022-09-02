@@ -106,6 +106,7 @@ class MARC21Converter:
                     self.get_linked_records(record, marc_records, linked_identifiers)
                     linked_ids.extend(linked_identifiers - {record['001'].data})
                     reader.extend(marc_records)
+                    requested_ids.update(linked_identifiers - {record['001'].data})
 
         self.max_number_of_titles = int(self.config['SETTINGS'].get('max_titles'))
         if args.identity_types == "persons":
@@ -409,14 +410,7 @@ class MARC21Converter:
             if record_id in clustered_ids:
                 resource_ids.union(clustered_ids[record_id])
 
-        for record_id in resource_ids:
-            if not args.resource_files:
-                if (args.created_after or args.modified_after) and record_id not in current_ids:
-                    pass
-                elif record_id not in self.resource_list.titles:
-                    self.api_search_resources(record_id)
-            if record_id in identities:
-                identities[record_id]['resource'] = self.sort_resources(record_id, identity['languageOfIdentity'])
+        
 
         for cluster in merged_id_clusters:
             for cluster_id in cluster:
@@ -426,8 +420,17 @@ class MARC21Converter:
                         not_requested_ids.add(cluster_id)
             for cluster_id in cluster:
                 if cluster_id not in not_requested_ids:
-                    identities[cluster_id] = self.merge_identities(cluster_id, cluster[cluster_id]['merge'], identities) 
+                    identities[cluster_id] = self.merge_identities(cluster_id, cluster[cluster_id]['merge'], identities)
                     identities[cluster_id]['isNot'] = cluster[cluster_id]['isNot']
+        for record_id in resource_ids:
+            if not args.resource_files:
+                if (args.created_after or args.modified_after) and record_id not in current_ids:
+                    pass
+                elif record_id not in self.resource_list.titles:
+                    self.api_search_resources(record_id)
+            if record_id in identities:
+                identities[record_id]['resource'] = self.sort_resources(record_id, identity['languageOfIdentity'])
+
         for record_id in identities:
             if not 'isNot' in identities[record_id]:
                 identities[record_id]['isNot'] = []
