@@ -93,7 +93,7 @@ class APIQuery():
             query += "&"
         return query + name + "=" + value
 
-    def form_query_url(self, query_strings, parameters=None):
+    def form_query_url(self, query_strings, parameters=None, token_parameters=None):
         """
         query: query parameters formatted with URL encodings using form_query function
         additional_parameters: SRU API parameters in dict as keys and values, e. g. {'maximumRecords': '20'}
@@ -112,14 +112,25 @@ class APIQuery():
             for query in query_strings:                
                 query_string += query
             query_string = query_string.replace(' ', '%20')
-            url = self.add_query_parameters(url, 'query', query_string)
+            url = self.add_query_parameters(url,
+                                            'query',
+                                            query_string)
         if self.constant_parameters:
             for parameter in self.constant_parameters:
-                url = self.add_query_parameters(url, parameter,  self.constant_parameters[parameter])
+                url = self.add_query_parameters(url,
+                                                parameter,
+                                                self.constant_parameters[parameter])
         if parameters:
             for parameter in parameters:
-                url = self.add_query_parameters(url, parameter, parameters[parameter])
-        
+                url = self.add_query_parameters(url,
+                                                parameter,
+                                                parameters[parameter])
+        if token_parameters:
+            for parameter in token_parameters:
+                url = self.add_query_parameters(url,
+                                                parameter,
+                                                encode_chars(token_parameters[parameter]))
+
         return url
 
     def search_with_id(self, id_type, identifier):
@@ -162,8 +173,8 @@ class APIQuery():
         with open(file_path, 'w', encoding="latin1") as f:
             f.write(r.text)
 
-    def api_search(self, query_strings=None, parameters=None):
-        url = self.form_query_url(query_strings, parameters)
+    def api_search(self, query_strings=None, parameters=None, token_parameters=None):
+        url = self.form_query_url(query_strings, parameters, token_parameters)
         try:
             r = requests.get(url, timeout=20)
         except requests.exceptions.ReadTimeout:

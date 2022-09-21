@@ -80,15 +80,28 @@ class MARC21Converter:
             elif args.modified_after or args.created_after or args.until:
                 section = self.config['AUT OAI-PMH API']                      
                 oai_pmh_query =  api_query.APIQuery(config_section=section)
-                query_parameters = {}
+                query_parameters = {"metadataPrefix": "melinda_marc"}
                 if args.modified_after:
-                    query_parameters = {'from': args.modified_after}
+                    query_parameters['from'] = args.modified_after
                 elif args.created_after:
-                    query_parameters = {'from': args.created_after}
+                    query_parameters['from'] = args.created_after
                 if args.until:
-                    query_parameters.update({'until': args.until})
+                    query_parameters['until'] = args.until
                 response = oai_pmh_query.api_search(parameters=query_parameters)
                 identifiers = parse_oai_response.get_identifiers(response)
+                token = parse_oai_response.get_resumption_token(response)
+                if token:
+                    while True:
+                        answer = input("Over 1000 updated records. Resume OAI-PMH requesting (Y/N)?")
+                        if answer.lower() == "y":
+                            break
+                        if answer.lower() == "n":
+                            sys.exit(2)
+                    while token:
+                        token_parameters = {'resumptionToken': token}
+                        response = oai_pmh_query.api_search(token_parameters=token_parameters)
+                        identifiers.extend(parse_oai_response.get_identifiers(response))
+                        token = parse_oai_response.get_resumption_token(response)
             else:
                 logging.error("Command line argument modified_after required if authority file not given")
                 sys.exit(2)
@@ -191,10 +204,12 @@ class MARC21Converter:
                         identity['modification date'] = formatted_date
             if args.created_after:
                 if identity['creation date'] >= args.created_after:
-                    current_ids.append(record_id)
+                    if not args.until or identity['creation date'] < args.until:
+                        current_ids.append(record_id)
             if args.modified_after:
                 if identity['modification date'] >= args.modified_after:
-                    current_ids.append(record_id)
+                    if not args.until or identity['modification date'] < args.until:
+                        current_ids.append(record_id)
             if args.identifier:
                 identity['identifier'] = "(" + args.identifier + ")" + record_id
             else:
@@ -278,7 +293,7 @@ class MARC21Converter:
                 
                 for field in record.get_fields('046'):
                     # NOTE: it is assumed that only one MARC21 field for dates is used
-                    dates = self.get_dates(field)
+                    dates = self.get_dates(field, identity['identityType'])
                     if dates:
                         if identity['identityType'] == 'personOrFiction':
                             identity['birthDate'] = dates['birthDate'] 
@@ -763,96 +778,71 @@ class MARC21Converter:
 
         mainName = None
         subdivisionName = []
-        
         for sf in field.get_subfields("a"):
-            mainName = re.sub("[\(].*?[\)]", "", sf)
-            mainName = mainName.strip()
-            
-            if field.tag == "410":
-                # detect if accronym is specified by a full name in parenthesis, use specifier in name:
-                main_names = []
-                tags = ['110', '410']
-                for tag in tags:
-                    for name_field in record.get_fields(tag):
-                        for sf in name_field.get_subfields('a'):
-                            name = sf
-                            if name.endswith('.'):
-                                name = name[:-1]
-                            name = re.sub("[\(].*?[\)]", "", name)
-                            name = name.strip()
-                            main_names.append(name)
-                if "(" in sf and ")" in sf:
-                    name = re.search('\(([^)]+)', sf).group(1)
-                    specifier_name = name.strip()
-                    if specifier_name:
-                        for name in main_names:
-                            if name.startswith(specifier_name) or specifier_name.startswith(name):
-                                mainName = sf
+            mainName = sf
+            if field. tag == "110":
+                mainName = re.sub("[\(].*?[\)]", "", mainName)
+                mainName = mainName.strip()
         if mainName:
             for sf in field.get_subfields("b"):
                 subdivisionName.append(sf)
         else:
             logging.error("%s: subfield a missing: %s"%(record['001'].data, field))
             return
-        
+
         return {"mainName": mainName, "subdivisionName": subdivisionName}           
 
-    def get_dates(self, field):
+    def get_dates(self, field, identity_type):
         """
         Get Data elemant values document for valid formats YYY-MM-DD preferred 
         ISNI AtomPub schema says that:
         dateType indicates if one of the dates is approximate,
         either "circa" meaning within a few (how many -is it 5?) years or
         "flourished" meaning was active in these years
-        :param field: MARC21 field number 046 
+        :param field: MARC21 field number 046
+        :param identity_type: either string 'personOrFiction' or 'organisation'
         """
-        dateType = None
-        birthDate = None
-        deathDate = None
-        usageDateFrom = None
-        usageDateTo = None
+        date_type = None
+        start_date = None
+        end_date = None
 
         date_subfields = ['f', 'g', 'q', 'r', 's', 't']
 
-        for df in date_subfields:
-            for d in field.get_subfields(df):    
+        for code in date_subfields:
+            for d in field.get_subfields(code):
                 is_valid = False
-                # year in format YYYY, YYYY-MM, YYYY-MM-DD"
+                # year in format YYYY, YYYY-MM, YYYY-MM-DD
                 pattern = re.compile(r'-?\d{4}-\d{2}-\d{2}|-?\d{4}-\d{2}|-?\d{4}')
                 if pattern.fullmatch(d):
                     is_valid = True
-                if df == "f" or df == "g":
-                    if not is_valid and len(pattern.findall(d)) == 1:
-                        if d.endswith("~"):
-                            d = d.replace("~", "")
-                            if pattern.fullmatch(d):
-                                dateType = "circa"
-                                is_valid = True         
+                elif len(pattern.findall(d)) == 1 and code in ['f', 'g']:
+                    if d.endswith("~"):
+                        d = d.replace("~", "")
+                        if pattern.fullmatch(d):
+                            date_type = "circa"
+                            is_valid = True
+                # year in edtf format [YYYY,YYYY]
+                edtf_pattern = re.compile(r'\[-?\d{4},-?\d{4}\]')
+                if edtf_pattern.fullmatch(d):
+                    d = d.replace("[", "").replace("]", "")
+                    first_year, second_year = d.split(',')
+                    if int(second_year) - int(first_year) == 1:
+                        d = first_year
+                        date_type = "circa"
+                        is_valid = True
                 if is_valid:
-                    if df == "f":                         
-                        birthDate = d
-                    if df == "g":                         
-                        deathDate = d
-                    #  046 s and t subfields are used both for organisations and persons
-                    #  unnecessary data returned here is to be discarded later 
-                    if df in ['q', 'r', 's', 't']:
-                        dateType = "flourished"
-                    if df == "q":                         
-                        usageDateFrom = d
-                    if df == "r":                         
-                        usageDateTo = d
-                    if df == "s":                         
-                        birthDate = d
-                        usageDateFrom = d
-                    if df == "t":                         
-                        deathDate = d
-                        usageDateTo = d
-                    
-        return {"birthDate": birthDate, 
-                "deathDate": deathDate, 
-                "dateType": dateType,
-                "usageDateFrom": usageDateFrom,
-                "usageDateTo": usageDateTo}
+                    if code in ['f', 'q', 's']:
+                        if code != 'f' or identity_type != 'organisation':
+                            start_date = d
+                    if code in ['g', 'r', 't']:
+                        if code != 'g' or identity_type != 'organisation':
+                            end_date = d
+                    if code in ['q', 'r', 's', 't'] and identity_type == 'personOrFiction':
+                        date_type = "flourished"
+        if identity_type == 'personOrFiction':
+            return {"birthDate": start_date, "deathDate": end_date, "dateType": date_type}
+        elif identity_type == 'organisation':
+            return {"usageDateFrom": start_date, "usageDateTo": end_date}
 
     def api_search_resources(self, identity_id):
         query_strings = []
