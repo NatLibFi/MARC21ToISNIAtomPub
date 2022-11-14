@@ -45,7 +45,6 @@ class MARC21Converter:
                         parameters = {'doc_num': linked_identifier}
                         response = self.oai_x_query.api_search(parameters=parameters)
                         marc_record = parse_oai_response.get_records(response)[0]
-                        #if not record in marc_records:
                         marc_records.append(marc_record)
                         self.get_linked_records(marc_record, marc_records, identifiers)
 
@@ -71,7 +70,6 @@ class MARC21Converter:
         # id not in requested_ids but merged with requested_ids
         related_identities = set()
         not_requested_ids = set()
-
 
         if not args.authority_files:
             logging.info("Requesting authority records with API")
@@ -115,15 +113,12 @@ class MARC21Converter:
                 response = self.oai_x_query.api_search(parameters=parameters)
                 marc_records = []
                 record = parse_oai_response.get_records(response)[0]
-                if not record in marc_records:
-                    marc_records.append(record)
+                marc_records.append(record)
                 if record['001']:
                     linked_identifiers = {record['001'].data}
                     self.get_linked_records(record, marc_records, linked_identifiers)
                     linked_ids.extend(linked_identifiers - {record['001'].data})
-                    for mr in marc_records:
-                        if not any(mr['001'].data == rec['001'].data for rec in reader):
-                            reader.append(mr)
+                    reader.extend(marc_records)
                     requested_ids.update(linked_identifiers - {record['001'].data})
 
         self.max_number_of_titles = int(self.config['SETTINGS'].get('max_titles'))
@@ -145,6 +140,7 @@ class MARC21Converter:
                 sys.exit(2)
 
         record = ""
+
         while record is not None:
             record_id = None
             if args.authority_files:
@@ -370,6 +366,7 @@ class MARC21Converter:
         merged_ids = []
         merged_id_clusters = []
         mergeable_relations = ["supersedes", "isSupersededBy"]
+
         for record_id in identities:
             if record_id not in merged_ids and identities[record_id]['identityType'] == 'organisation':
                 ids = [record_id]
@@ -392,6 +389,7 @@ class MARC21Converter:
                         if identifier in not_requested_ids:
                             data[identifier]['delete'] = True
                     merged_id_clusters.append(data)  
+
         clustered_ids = {}
         for cluster in merged_id_clusters:
             for cluster_id in cluster:
@@ -426,6 +424,9 @@ class MARC21Converter:
                 resource_ids.add(record_id)
             if record_id in clustered_ids:
                 resource_ids.union(clustered_ids[record_id])
+
+        
+
         for cluster in merged_id_clusters:
             for cluster_id in cluster:
                 if cluster[cluster_id]['delete'] and cluster[cluster_id]['merge']:
@@ -436,7 +437,6 @@ class MARC21Converter:
                 if cluster_id not in not_requested_ids:
                     identities[cluster_id] = self.merge_identities(cluster_id, cluster[cluster_id]['merge'], identities)
                     identities[cluster_id]['isNot'] = cluster[cluster_id]['isNot']
-
         for record_id in resource_ids:
             if not args.resource_files:
                 if (args.created_after or args.modified_after) and record_id not in current_ids:
@@ -851,7 +851,7 @@ class MARC21Converter:
         query_strings.append("melinda.asterinameid=" + identity_id)
         query_strings.append(" AND (melinda.authenticationcode=finb OR melinda.authenticationcode=finbd)")
         record_position = 1
-        additional_parameters = {'maximumRecords': '100', 'startRecord': str(record_position)}
+        additional_parameters = {'maximumRecords': '50', 'startRecord': str(record_position)}
         logging.info("Requesting bibliographical records for authority record %s"%identity_id)
         response = self.sru_bib_query.api_search(query_strings, additional_parameters)
         response_records = parse_sru_response.get_records(response)    
@@ -872,7 +872,7 @@ class MARC21Converter:
             number = max_number
         record_position += 50
         while (record_position - 1 < number):
-            additional_parameters = {'maximumRecords': '100', 'startRecord': str(record_position)}
+            additional_parameters = {'maximumRecords': '50', 'startRecord': str(record_position)}
             response = self.sru_bib_query.api_search(query_strings, additional_parameters)
             if response_records:  
                 records.extend(parse_sru_response.get_records(response))
