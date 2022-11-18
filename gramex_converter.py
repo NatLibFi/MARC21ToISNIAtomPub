@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime
+from datetime import datetime, date
+from tools import spreadsheet_reader
 import csv
 import configparser
 import re
@@ -37,118 +38,92 @@ class GramexConverter:
         """ 
 
         logging.info("Opening %s"%args.authority_files)
-        
-        """ TODO: remove this temporary code:
-        ipda_ids = dict()
-        with open('kaikki_IPN_ISNI_Gramex-localID.txt', 'r', encoding='utf-8') as fh:
-            for line in fh:
-                data = line.split(';')
-                if len(data) > 2:
-                    ipda_ids[data[2].rstrip()] = {'ISNI': data[1], 'IPN': data[0]} """
 
-        with open(args.authority_files, 'r', encoding='utf-8-sig', newline='') as fh:
-            csvreader = csv.reader(fh, delimiter=';', quotechar='"')
-       
-            keys = ['ID',
-                    'Alternative name ID',
-                    'LAST_NAME',
-                    'FIRST_NAME',
-                    'DATE_OF_BIRTH',
-                    'DATE_OF_DEATH',
-                    'NAME',
-                    'CODE']
-        
-            header = next(csvreader)
-            author_indices = {value:n 
-                              for n, value in enumerate(header)
-                              if value in keys}
+        reader = spreadsheet_reader.SpreadsheetReader(args.authority_files)
 
-            names = dict()
-            id_dict = dict()
-            for row in csvreader:
-                row = [i or None for i in row]
-                indice = author_indices.get('CODE')
-                name_type = row[author_indices['CODE']] if indice else None
-                pseud_id = None
-                identifiers = []
-                real_id = row[author_indices['ID']]
-                if not real_id:
+        author_indices = reader.header_indices
+
+        names = dict()
+        id_dict = dict()
+        for row in reader:
+            row = [i or None for i in row]
+            indice = author_indices.get('CODE')
+            name_type = row[author_indices['CODE']] if indice else None
+            pseud_id = None
+            identifiers = []
+            real_id = row[author_indices['ID']]
+            if not real_id:
+                continue
+            if row[author_indices['DATE_OF_BIRTH']]:
+                conversion_time = datetime.today().date()
+                limit_date = date(conversion_time.year - 18, conversion_time.month, conversion_time.day).isoformat()
+                if row[author_indices['DATE_OF_BIRTH']][:7] > limit_date:
+                    logging.error("Skipping invalid date %s in record %s"%(row[author_indices['DATE_OF_BIRTH']], real_id))
                     continue
-                
-                if row[author_indices['DATE_OF_BIRTH']]:
-                    if row[author_indices['DATE_OF_BIRTH']][:7] > "2004-05":
-                        logging.error("Skipping invalid date %s in record %s"%(row[author_indices['DATE_OF_BIRTH']], real_id))
-                        continue
-                if name_type == 'PS':
-                    pseud_id = row[author_indices['Alternative name ID']]
-                    identifiers.append(pseud_id)
-                    id_dict[pseud_id] = real_id
-                identifiers.append(real_id)
-                for id in identifiers:
-                    if id not in names:
-                        names[id] = dict()
-                        for key in author_indices:
-                            names[id][key] = row[author_indices[key]]
-                        names[id]['variant names'] = []
-                        names[id]['artist names'] = []
-                        names[id]['pseudonyms'] = []
-                        names[id]['groups'] = []
-                if pseud_id:
-                    names[pseud_id]['type'] = 'pseud'
-                names[id]['type'] = 'real name'
-                indice = author_indices.get('NAME')
-                variant_name = row[author_indices['NAME']] if indice else None
-                if variant_name:
-                    variant_forenames = None
-                    variant_surname = None
-                    if " " in variant_name:
-                        variant_forenames = variant_name[variant_name.find(" ") + 1:]
-                        variant_surname = variant_name[:variant_name.find(" ")]
-                    else:
-                        variant_surname = variant_name
-                    whole_name = {'forename': variant_forenames, 'surname': variant_surname}
-                    if name_type == "AR":
-                        names[id]['variant names'].append({'forename': names[id]['FIRST_NAME'], 'surname': names[id]['LAST_NAME']})
-                        names[id]['artist names'].append(whole_name)
-                        names[id]['FIRST_NAME'] = variant_forenames
-                        names[id]['LAST_NAME'] = variant_surname
-                    elif name_type == "PS":
-                        names[real_id]['pseudonyms'].append(whole_name)
-                        names[pseud_id]['pseudonyms'].append(whole_name)
-                    elif name_type == "GR":
-                        names[id]['groups'].append(variant_name)
-                    elif name_type != "NO":
-                        names[id]['variant names'].append(whole_name)
+            if name_type == 'PS':
+                pseud_id = row[author_indices['ID']] + "(" + \
+                            row[author_indices['Alternative name ID']] + ")"
+                identifiers.append(pseud_id)
+                id_dict[pseud_id] = real_id
+            identifiers.append(real_id)
+            for id in identifiers:
+                if id not in names:
+                    names[id] = dict()
+                    for key in author_indices:
+                        names[id][key] = row[author_indices[key]]
+                        if names[id][key]:
+                            names[id][key] = names[id][key].strip()
+                    names[id]['variant names'] = []
+                    names[id]['artist names'] = []
+                    names[id]['pseudonyms'] = []
+                    names[id]['groups'] = []
+            if pseud_id:
+                names[pseud_id]['type'] = 'pseud'
+            names[id]['type'] = 'real name'
+            indice = author_indices.get('NAME')
+            variant_name = row[author_indices['NAME']] if indice else None
+            if variant_name:
+                variant_forenames = None
+                variant_surname = None
+                if " " in variant_name:
+                    variant_forenames = variant_name[variant_name.find(" ") + 1:]
+                    variant_surname = variant_name[:variant_name.find(" ")]
+                else:
+                    variant_surname = variant_name
+                whole_name = {'forename': variant_forenames, 'surname': variant_surname}
+                if name_type == "AR":
+                    names[id]['variant names'].append({'forename': names[id]['FIRST_NAME'], 'surname': names[id]['LAST_NAME']})
+                    names[id]['artist names'].append(whole_name)
+                    names[id]['FIRST_NAME'] = variant_forenames
+                    names[id]['LAST_NAME'] = variant_surname
+                elif name_type == "PS":
+                    names[real_id]['pseudonyms'].append(whole_name)
+                    names[pseud_id]['pseudonyms'].append(whole_name)
+                elif name_type == "GR":
+                    names[id]['groups'].append(variant_name)
+                elif name_type != "NO":
+                    names[id]['variant names'].append(whole_name)
+        reader.close()
 
         logging.info("Opening %s"%args.resource_files)
-        with open(args.resource_files, 'r', encoding='utf-8-sig', newline='') as fh:
-            csvreader = csv.reader(fh, delimiter=';', quotechar='"')
-            keys = ['PARTY_ID',
-                    'ISRC',
-                    'TRACK_TITLE',
-                    'MAINARTIST_NAME',
-                    'RECORDING_YEAR',
-                    'CATALOG_NUMBERS']
-            
-            header = next(csvreader)
-            track_indices = {value:n 
-                            for n, value in enumerate(header)
-                            if value in keys}
+        reader = spreadsheet_reader.SpreadsheetReader(args.resource_files)
 
-            tracks = dict()
-            for row in csvreader:
-                row = [i or None for i in row]
-                id = row[track_indices['PARTY_ID']]
-                if id not in tracks:
-                    tracks[id] = []
-                track = dict()
-                for key in track_indices:
-                    value = row[track_indices[key]]
-                    track[key] = value
-                    if key == 'CATALOG_NUMBERS':
-                        number = value.count(',')
-                        track['AMOUNT'] = number
-                tracks[id].append(track)
+        track_indices = reader.header_indices
+
+        tracks = dict()
+        for row in reader:
+            row = [i or None for i in row]
+            id = row[track_indices['PARTY_ID']]
+            if id not in tracks:
+                tracks[id] = []
+            track = dict()
+            for key in track_indices:
+                value = row[track_indices[key]]
+                track[key] = value
+                if key == 'CATALOG_NUMBERS':
+                    number = value.count(',')
+                    track['AMOUNT'] = number
+            tracks[id].append(track)
 
         for id in tracks:
             tracks[id] = sorted(tracks[id], key=lambda d:(
@@ -225,7 +200,9 @@ class GramexConverter:
                     resource = {'title': track['TRACK_TITLE'],
                                 'creationRole': 'prf',
                                 'date': track['RECORDING_YEAR'],
-                                'identifiers': {'ISRC': [track['ISRC']]}}
+                                'identifiers': dict()}
+                    if track['ISRC']:
+                        resource['identifiers'] = {'ISRC': [track['ISRC']]}
                     mainartist_name = {'forename': None, 'surname': None}
                     mainartist_names = track['MAINARTIST_NAME'].split(' ')
                     if len(mainartist_names) == 1:
@@ -241,14 +218,19 @@ class GramexConverter:
 
         count = 0
         for id in identities:
-            
+            otherIdentifierOfIdentity = []
             if not identities[id].get('resource'):
                 count += 1
-
+            if otherIdentifierOfIdentity:
+                identities[id]['otherIdentifierOfIdentity'] = otherIdentifierOfIdentity
+        if requested_ids:
+           for id in identities:
+                if id not in requested_ids:
+                     deletable_identities.add(id)
         for id in deletable_identities:
             if id in identities:
                 del(identities[id])
         identities = dict(sorted(identities.items()))
+        logging.info("Number of performers without records: %s "%count)
 
-        print("Performers without records"+str(count))
         return identities
