@@ -58,7 +58,10 @@ class RaportWriter():
                 cells.append(response['isni'])
                 self.write_response('ISNIt', cells)
         elif response.get('possible matches'):
-            cells.append(response['reason'])
+            if response.get('reason'):
+                cells.append(response['reason'])
+            else:
+                cells.append('')
             cells.append('')
             for pm in response['possible matches']:
                 cells.append(pm['id'])
