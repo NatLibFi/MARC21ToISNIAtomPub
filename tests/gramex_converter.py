@@ -1,7 +1,5 @@
 import unittest
-from unittest.mock import Mock
 from gramex_converter import GramexConverter
-from converter import Converter
 
 class MockArgs(object):
     pass
@@ -29,8 +27,8 @@ class GramexConverterTest(unittest.TestCase):
         self.assertEqual(resource_count, 8)
 
     def test_matching_records_with_name(self):
-        self.assertEqual(len(self.results['7']['resource']), 2)
-        self.assertEqual(len(self.results['00016']['resource']), 0)
+        self.assertEqual(len(self.results['7']['resource']), 1)
+        self.assertEqual(len(self.results['7(00016)']['resource']), 0)
 
     def test_person_affiliations(self):
         relation = self.results['1']['isRelated'][0]
@@ -48,6 +46,18 @@ class GramexConverterTest(unittest.TestCase):
         self.assertEqual(resources[1]['title'], 'KAPPALE 1')
         self.assertEqual(resources[-1]['title'], 'KAPPALE 2')
 
+    def test_pseudonym_resources(self):
+        self.assertEqual(len(self.results['2']['resource']), 1)
+        self.assertEqual(self.results['2']['resource'][0]['title'], 'KAPPALE 9')
+        self.assertEqual(len(self.results['2(00004)']['resource']), 1)
+        self.assertEqual(self.results['2(00004)']['resource'][0]['title'], 'KAPPALE 8')
+        self.assertEqual(len(self.results['4']['resource']), 1)
+        self.assertEqual(self.results['4']['resource'][0]['title'], 'KAPPALE 14')
+        self.assertEqual(len(self.results['4(00009)']['resource']), 1)
+        self.assertEqual(self.results['4(00009)']['resource'][0]['title'], 'KAPPALE 15')
+        self.assertEqual(len(self.results['4(00010)']['resource']), 1)
+        self.assertEqual(self.results['4(00010)']['resource'][0]['title'], 'KAPPALE 12')
+
     def test_person_pseudonyms(self):
         relations = self.results['4']['isRelated']
         self.assertEqual(len(relations), 2)
@@ -57,7 +67,7 @@ class GramexConverterTest(unittest.TestCase):
         self.assertEqual(pseudonym['personalName']['surname'], 'PSEUDONYYMI')
 
     def test_real_identity(self):
-        relations = self.results['00010']['isRelated']
+        relations = self.results['4(00010)']['isRelated']
         self.assertEqual(len(relations), 1)
         real_name = None
         for relation in relations:

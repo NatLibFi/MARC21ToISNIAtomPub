@@ -24,12 +24,11 @@ class GramexConverter:
         return False
 
     def names_match(self, name1, name2):
-        if name1['surname'] == name2['surname']:
-            return True
-        if name1['forename'] and name2['forename']:
-            if any(forename in name2['forename'] for forename in name1['forename'].split(' ')):
-                return True
-        return False
+        if name1['surname'] != name2['surname']:
+            return False
+        if name1['forename'] != name2['forename']:
+                return False
+        return True
 
     def get_authority_data(self, args, requested_ids=set()):
         """
@@ -188,7 +187,7 @@ class GramexConverter:
             person_id = id_dict.get(id, id)
             if person_id in tracks:
                 matching_name = dict()
-                if names[person_id]['pseudonyms'] and names[person_id]['artist names']:
+                if len(names[person_id]['pseudonyms']) > 1 or (names[person_id]['pseudonyms'] and names[person_id]['artist names']):
                     if names[id]['type'] == 'pseud':
                         pseudonym = names[id]['pseudonyms'][0]
                         matching_name['forename'] = pseudonym['forename']
@@ -196,6 +195,7 @@ class GramexConverter:
                     else:
                         matching_name['forename'] = names[id]['FIRST_NAME']
                         matching_name['surname'] = names[id]['LAST_NAME']
+
                 for track in tracks[person_id]:
                     resource = {'title': track['TRACK_TITLE'],
                                 'creationRole': 'prf',
@@ -214,7 +214,7 @@ class GramexConverter:
                         identities[id]['resource'].append(resource)
 
                 identities[id]['resource'] = identities[id]['resource'][:max_number_of_titles]
-
+        reader.close()
 
         count = 0
         for id in identities:
