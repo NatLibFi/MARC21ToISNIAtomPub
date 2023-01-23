@@ -72,7 +72,6 @@ class MARC21Converter:
         related_identities = set()
         not_requested_ids = set()
 
-
         if not args.authority_files:
             logging.info("Requesting authority records with API")
             identifiers = []
@@ -377,7 +376,7 @@ class MARC21Converter:
                     relationType = related_name['relationType']
                     if relationType in mergeable_relations:
                         # in case MARC field 510 subfield 0 is missing
-                        if related_name['identifier']:
+                        if related_name.get('identifier'):
                             self.get_linked_ids(identities, related_name['identifier'], ids, mergeable_relations)
                         else:
                             logging.error('Record %s is missing one of its 510 0 subfields'%record_id)
@@ -540,8 +539,9 @@ class MARC21Converter:
             merged_identity['organisationNameVariant'].append(identities[identifier]['organisationName'])
             merged_identity['resource'].extend(identities[identifier]['resource'])
         for related_identity in merged_identity['isRelated']:
-            if related_identity['identifier'] not in merged_ids:
-                related_identities.append(related_identity)
+            if related_identity.get('identifier'):
+                if related_identity['identifier'] not in merged_ids:
+                    related_identities.append(related_identity)
         del(merged_identity['isRelated'])     
         merged_identity['isRelated'] = related_identities
         if 'usageDateFrom' in merged_identity:
