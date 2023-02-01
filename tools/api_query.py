@@ -1,6 +1,5 @@
 import logging
 import requests
-import configparser
 import json
 import sys
 
@@ -66,7 +65,8 @@ class APIQuery():
             logging.error(e)
             sys.exit(2)
         self.username = None
-        self.password = None                              
+        self.password = None
+        self.timeout = int(config_section.get('timeout'))
         if username:
             self.username = 'username=' + username
         if password:
@@ -145,7 +145,7 @@ class APIQuery():
         query = self.form_isni_query(parameters)
         url = self.form_query_url([query])
         try:
-            r = requests.get(url, timeout=20)
+            r = requests.get(url, timeout=self.timeout)
         except requests.exceptions.ReadTimeout:
             logging.error("Timeout for query %s"%url)
             return
@@ -165,18 +165,18 @@ class APIQuery():
         parameters = {"cn": contributor_number + " " + source_code + " " + contributor_identifier}
         query = self.form_isni_query(parameters)
         url = self.form_query_url([query])
-        r = requests.get(url, timeout=20)
+        r = requests.get(url, timeout=self.timeout)
         return r.text
 
     def write_request(self, url, file_path):
-        r = requests.get(url, timeout=20)
+        r = requests.get(url, timeout=self.timeout)
         with open(file_path, 'w', encoding="latin1") as f:
             f.write(r.text)
 
     def api_search(self, query_strings=None, parameters=None, token_parameters=None):
         url = self.form_query_url(query_strings, parameters, token_parameters)
         try:
-            r = requests.get(url, timeout=20)
+            r = requests.get(url, timeout=self.timeout)
         except requests.exceptions.ReadTimeout:
             logging.error("Timeout for query %s"%url)
             return

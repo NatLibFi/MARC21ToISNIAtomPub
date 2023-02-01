@@ -15,9 +15,11 @@ class Validator:
             'language': 'language_codes.dat'
         }
         self.codes = {}
+        directory = os.path.realpath(os.path.join(os.path.dirname(__file__)))
+        data_directory = os.path.join(directory, 'data')
         for cf in code_files:
             self.codes[cf] = set()
-            with open(os.path.join('data', code_files[cf]), 'r', encoding = 'utf-8') as fh:
+            with open(os.path.join(data_directory, code_files[cf]), 'r', encoding = 'utf-8') as fh:
                 for line in fh:
                     try:
                         if cf == 'country':

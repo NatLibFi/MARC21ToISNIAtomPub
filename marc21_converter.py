@@ -18,11 +18,11 @@ class MARC21Converter:
     """
         A class to collect data from mrc binary files to ISNI Atom Pub XML format.
     """
-    def __init__(self):
+    def __init__(self, config):
         self.term_encoder = TermEncoder()
         self.validator = Validator()
         self.config = configparser.ConfigParser()
-        self.config.read('config.ini')
+        self.config = config
         self.records = {}
         self.resources = None
         self.sru_bib_query = None
@@ -46,8 +46,11 @@ class MARC21Converter:
                         response = self.oai_x_query.api_search(parameters=parameters)
                         marc_record = parse_oai_response.get_records(response)[0]
                         #if not record in marc_records:
-                        marc_records.append(marc_record)
-                        self.get_linked_records(marc_record, marc_records, identifiers)
+                        if marc_record['001']:
+                            marc_records.append(marc_record)
+                            self.get_linked_records(marc_record, marc_records, identifiers)
+                        else:
+                            logging.error("Record %s in subfield 0 missing from record %s"%(linked_identifier, record['001'].data))
 
     def get_authority_data(self, args, requested_ids=set()):
         """
@@ -117,12 +120,14 @@ class MARC21Converter:
                 if not record in marc_records:
                     marc_records.append(record)
                 if record['001']:
+                    linked_id = record['001'].data
                     linked_identifiers = {record['001'].data}
                     self.get_linked_records(record, marc_records, linked_identifiers)
-                    linked_ids.extend(linked_identifiers - {record['001'].data})
+                    linked_ids.extend(linked_identifiers - {linked_id})
                     for mr in marc_records:
                         if not any(mr['001'].data == rec['001'].data for rec in reader):
-                            reader.append(mr)
+                            if mr:
+                                reader.append(mr)
                     requested_ids.update(linked_identifiers - {record['001'].data})
 
         self.max_number_of_titles = int(self.config['SETTINGS'].get('max_titles'))
@@ -851,7 +856,9 @@ class MARC21Converter:
         query_strings.append("melinda.asterinameid=" + identity_id)
         query_strings.append(" AND (melinda.authenticationcode=finb OR melinda.authenticationcode=finbd)")
         record_position = 1
-        additional_parameters = {'maximumRecords': '100', 'startRecord': str(record_position)}
+        config_parameters = json.loads(self.config['BIB SRU API'].get('parameters'))
+        offset = int(config_parameters['maximumRecords'])
+        additional_parameters = {'startRecord': str(record_position)}
         logging.info("Requesting bibliographical records for authority record %s"%identity_id)
         response = self.sru_bib_query.api_search(query_strings, additional_parameters)
         response_records = parse_sru_response.get_records(response)    
@@ -870,13 +877,13 @@ class MARC21Converter:
         max_number = int(self.config['BIB SRU API'].get('total_records'))
         if number > max_number:
             number = max_number
-        record_position += 50
+        record_position += offset
         while (record_position - 1 < number):
-            additional_parameters = {'maximumRecords': '100', 'startRecord': str(record_position)}
+            additional_parameters['startRecord'] = str(record_position)
             response = self.sru_bib_query.api_search(query_strings, additional_parameters)
             if response_records:  
                 records.extend(parse_sru_response.get_records(response))
-            record_position += 50
+            record_position += offset
         for record in records:
             if record:
                 self.resource_list.get_record_data(record, identity_id) 

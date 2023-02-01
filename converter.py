@@ -4,7 +4,6 @@ import xml.etree.cElementTree as ET
 from lxml import etree
 import os
 import io
-import re
 import sys
 import openpyxl
 import argparse
@@ -74,8 +73,9 @@ class Converter():
         self.modified_after = None
         self.created_after = None
         self.config = configparser.ConfigParser()
-        self.config.read('config.ini')
-        section = self.config['ISNI SRU API']                      
+        directory = os.path.realpath(os.path.join(os.path.dirname(__file__)))
+        self.config.read(os.path.join(directory, 'config.ini'))
+        section = self.config['ISNI SRU API']
         self.sru_api_query = api_query.APIQuery(config_section=section,
                                       username=os.environ['ISNI_USER'],
                                       password=os.environ['ISNI_PASSWORD'])
@@ -131,8 +131,8 @@ class Converter():
                         requested_ids.add(local_id)
 
         if args.format in ['marc21', 'alephseq']:
-            self.converter = MARC21Converter()
-        if args.format == 'gramex':
+            self.converter = MARC21Converter(self.config)
+        elif args.format == 'gramex':
             self.converter = GramexConverter()
         records = self.converter.get_authority_data(args, requested_ids)
         concat = False

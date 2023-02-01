@@ -7,8 +7,9 @@ class TermEncoder():
         loglevel = logging.INFO
         logger = logging.getLogger()
         logger.setLevel(loglevel)
-        
-        data_directory = 'data'
+
+        directory = os.path.realpath(os.path.join(os.path.dirname(__file__)))
+        data_directory = os.path.join(directory, 'data')
         code_files = {
             'country codes': 'country_codes.dat',
             'organisation types': 'organisation_types.dat',

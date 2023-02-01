@@ -64,7 +64,13 @@ def get_identifiers(response):
                 for identifier in header.findall('oai:identifier', NAMESPACES):
                     identifiers.append(identifier.text.split('/')[-1])
     return identifiers
-     
+
+def get_resumption_token(response):
+    root = ET.fromstring(bytes(response, encoding='utf-8'))
+    for list in root.findall('oai:ListIdentifiers', NAMESPACES):
+        for token in list.findall('oai:resumptionToken', NAMESPACES):
+            return token.text
+
 def get_records(response):
     root = ET.fromstring(bytes(response, encoding='utf-8'))
     # these pymarc functions are overridden by parse_oai_response 

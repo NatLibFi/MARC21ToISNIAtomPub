@@ -18,11 +18,7 @@ class SpreadsheetReader:
             self.reader = CSVReader(file_path)
         except UnicodeDecodeError:
             self.reader = ExcelReader(file_path)
-        
-        """ if file_format == 'csv':            
-            self.reader = CSVReader(file_path)
-        elif file_format == 'xlsx':
-            self.reader = ExcelReader(file_path) """
+
         self.header_indices = self.reader.header_indices
 
     def close(self) -> None:

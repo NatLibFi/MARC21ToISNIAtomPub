@@ -4,6 +4,7 @@ from pymarc import XmlHandler, Field, Record
 import xml.sax
 from xml.sax import make_parser
 from xml.sax.handler import ContentHandler, feature_namespaces
+import unicodedata
 
 NAMESPACES = {'zs': 'http://docs.oasis-open.org/ns/search-ws/sruResponse',
               'srw': 'http://www.loc.gov/zing/srw/'}
