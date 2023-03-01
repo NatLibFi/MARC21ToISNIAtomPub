@@ -115,12 +115,8 @@ class Validator:
             return False
         return True
 
-    def check_ORCID(self, orcid):
-        orcid = orcid.replace('https://orcid.org/', '')
-        pattern = re.compile(r'\d{4}-\d{4}-\d{4}-\d{3}[0-9X]')
-        if not pattern.fullmatch(orcid):
-            return None
-        numbers = orcid.replace('-', '')
+    def valid_ISNI_checksum(self, identifier):
+        numbers = identifier.replace('-', '')
         if len(numbers) != 16:
             return None
         checksum = numbers[15]
@@ -134,9 +130,16 @@ class Validator:
             sum = (sum * 2) + int(n)
         sum = (sum * 2) + int(checksum)
         if sum % 11 == 1:
-            return orcid
+            return identifier
         else:
             return None
+
+    def valid_ORCID(self, identifier):
+        identifier = identifier.replace('https://orcid.org/', '')
+        pattern = re.compile(r'\d{4}-\d{4}-\d{4}-\d{3}[0-9X]')
+        if not pattern.fullmatch(identifier):
+            return None
+        return self.valid_ISNI_checksum(identifier)
 
     def format_year(self, year):
         if year.isdigit():

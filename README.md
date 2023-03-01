@@ -8,7 +8,8 @@ usage:
     python converter.py with command line arguments
     
     mandatory parameters:
-    -f  format: "marc21", "alephseq", "gramex" (input file in ISO 2709 format, Aleph Sequential file or CSV for Gramex)
+    -f format: "marc21", "alephseq", "gramex" (input file in ISO 2709 format, Aleph Sequential file or CSV for Gramex)
+    -F config_file_path: File path for configuration file structured for Python ConfigParser (e. g. config.ini file in main directory)
     -a authority_files: file path for MARC21 authority files 
     -r resource_files: file path for MARC21 
     -d output_directory: output directory where converted XML files are written

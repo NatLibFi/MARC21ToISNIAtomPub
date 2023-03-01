@@ -1,3 +1,4 @@
+import configparser
 import unittest
 from gramex_converter import GramexConverter
 
@@ -14,7 +15,9 @@ class GramexConverterTest(unittest.TestCase):
         args = MockArgs()
         args.authority_files = cls.authority_files
         args.resource_files = cls.resource_files
-        mc = GramexConverter()
+        config = configparser.ConfigParser()
+        config.read('tests/config.ini')
+        mc = GramexConverter(config)
         cls.results = mc.get_authority_data(args)
         
         return super(GramexConverterTest, cls).setUpClass()

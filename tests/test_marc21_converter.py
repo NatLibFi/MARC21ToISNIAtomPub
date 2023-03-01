@@ -1,18 +1,41 @@
 import unittest
-import configparser
-import json
-import os
 import shutil
 import sys
-from unittest.mock import Mock
-from marc21_converter import MARC21Converter
+from unittest import mock
 from converter import Converter
 from resource_list import ResourceList
-from tools import aleph_seq_reader
 from pymarc import Field
 
 class MockArgs(object):
     pass
+
+def get_isni(record):
+    for field in record.get_fields('024'):
+        if field['2']:
+            if field['2'] == 'isni':
+                return field['a']
+
+def is_marked(record):
+    for field in record.get_fields('924'):
+        for sf in field.get_subfields('x'):
+            if sf == "KESKEN-ISNI":
+                return True
+    return False
+
+def is_sparse(record):
+    for field in record.get_fields('924'):
+        if field['x'] and field['q']:
+            if field['x'] == "KESKEN-ISNI" and field['q'] == 'sparse record':
+                return True
+    return False
+
+def number_of_fields(record, tag, code, content):
+    number_of_fields = 0
+    for field in record.get_fields(tag):
+        for sf in field.get_subfields(code):
+            if sf == content:
+                number_of_fields += 1
+    return number_of_fields
 
 class MARC21ConverterTest(unittest.TestCase):
 
@@ -29,15 +52,15 @@ class MARC21ConverterTest(unittest.TestCase):
             "--authority_files", cls.authority_files,
             "--resource_files", cls.resource_files,
             "--output_directory", cls.output_directory,
-            "--identifier", "ID"
-        ])    
-        cls.c = Converter()
-        cls.mc = MARC21Converter()
+            "--identifier", "ID",
+            "--config_file_path", "tests/config.ini"
+        ])
+        #cls.patch = mock.patch.dict(os.environ, {"ISNI_USER": "", "ISNI_PASSWORD": ""})
+        #cls.patch.start()
+        c = Converter()
+        c.config.read('tests/config.ini')
+        cls.mc = c.converter
         cls.rl = ResourceList()
-        cls.config = configparser.ConfigParser()
-        cls.config.read('tests/config.ini')
-        cls.mc.config.read('tests/config.ini')
-        cls.mc.cataloguers = json.loads(cls.config['SETTINGS'].get('cataloguers'))
 
         return super(MARC21ConverterTest, cls).setUpClass()
 
@@ -109,6 +132,51 @@ class MARC21ConverterTest(unittest.TestCase):
         dates = self.mc.get_dates(field, identity_type)
         self.assertEqual(dates['usageDateFrom'], '-1900')
         self.assertEqual(dates['usageDateTo'], '2000')
+
+    def test_create_isni_fields(self):
+        args = MockArgs()
+        args.modified_after = None
+        args.created_after = None
+        args.mode = "write"
+        args.max_number = 10
+        args.format = "alephseq"
+        args.authority_files = self.authority_files
+        args.resource_files = self.resource_files
+        args.output_directory = self.output_directory
+        args.identifier = "ID"
+        args.identity_types = None
+        identities = self.mc.get_authority_data(args)
+        isni_response = {'000000015': {'isni': '0000000474363482', 'sources': []},
+                         '000000016': {'isni': '0000000484862619', 'sources': []},
+                         '000000017': {'isni': '0000000000000001', 'sources': []},
+                         '000000018': {'possible matches': {'000000001': {'source ids': ['000000018']}}},
+                         '000000019': {'possible matches': {'000000001': {'source ids': ['000000018']}}}
+                        }
+        isni_records = self.mc.create_isni_fields(isni_response)
+
+        self.assertNotIn('000000014', identities.keys())
+        for record in isni_records:
+            if record['001'].data == '000000015':
+                self.assertEqual(get_isni(record), '0000000474363482')
+                self.assertEqual(is_marked(record), False)
+            if record['001'].data == '000000016':
+                self.assertEqual(get_isni(record), '0000000484862619')
+                self.assertEqual(is_marked(record), False)
+            if record['001'].data == '000000017':
+                self.assertEqual(get_isni(record), '0000000000000001')
+                self.assertEqual(number_of_fields(record, '924', 'q', 'isNot'), 2)
+                self.assertEqual(is_marked(record), False)
+            if record['001'].data == '000000018':
+                self.assertEqual(get_isni(record), None)
+                self.assertEqual(is_marked(record), True)
+                self.assertEqual(is_sparse(record), True)
+            if record['001'].data == '000000019':
+                self.assertEqual(number_of_fields(record, '924', 'q', '=Asterin tietue(et): 000000018'), 1)
+                self.assertEqual(number_of_fields(record, '924', 'q', 'isNot'), 1)
+                self.assertEqual(get_isni(record), None)
+                self.assertEqual(is_marked(record), True)
+        isni_response = {'000000018': {'possible matches': {'000000001': {'source ids': ['000000017']}}}
+                         }
 
 if __name__ == "__main__":
     unittest.main()

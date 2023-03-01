@@ -60,17 +60,53 @@ def endElementNS(self, name, qname):
 
     self._text = []
 
-def get_isni_identifier(response):
-    isni_path = 'responseRecord/ISNIAssigned/isniUnformatted'
-    ppn_path = 'responseRecord/noISNI/PPN'
+def get_record_data(response):
+    record_data = []
     root = ET.fromstring(bytes(response, encoding='utf-8'))
     for records in root.findall('srw:records', NAMESPACES):
         for record in records.findall('srw:record', NAMESPACES):
-            for record_data in record.findall('srw:recordData', NAMESPACES):
-                for isni in record_data.findall(isni_path):
-                    return isni.text
-                for ppn in record_data.findall(ppn_path):
-                    return ppn.text
+            record_data.extend(record.findall('srw:recordData', NAMESPACES))
+    return record_data
+
+def get_isni_identifiers(response):
+    identifiers = {'isni': None, 'ppn': None, 'deprecated isnis': []}
+    isni_path = 'responseRecord/ISNIAssigned/isniUnformatted'
+    ppn_path = 'responseRecord/noISNI/PPN'
+    deprecated_path = 'responseRecord/ISNIAssigned/mergedISNI'
+    record_data = get_record_data(response)
+    for data in record_data:
+        for isni in data.findall(isni_path):
+            identifiers['isni'] = isni.text
+        for ppn in data.findall(ppn_path):
+            identifiers['ppn'] = ppn.text
+        for isni in data.findall(deprecated_path):
+            identifiers['deprecated isnis'].append(isni.text)
+    return identifiers
+
+def get_deprecated_isnis(response):
+    isni_path = 'responseRecord/ISNIAssigned/isniUnformatted'
+    ppn_path = 'responseRecord/noISNI/PPN'
+    record_data = get_record_data(response)
+    for data in record_data:
+        for isni in data.findall(isni_path):
+            return isni.text
+        for ppn in data.findall(ppn_path):
+            return ppn.text
+
+def get_source_identifiers(response, source_code):
+    record_data = get_record_data(response)
+    sources_ids = set()
+    for data in record_data:
+        for source in data.findall('responseRecord/ISNINotAssigned/ISNIMetadata/sources'):
+            source_identifier = None
+            code_of_source = None
+            for code_of_source in source.findall('codeOfSource'):
+                code_of_source = code_of_source.text
+            for source_identifier in source.findall('sourceIdentifier'):
+                source_identifier = source_identifier.text
+            if code_of_source == source_code:
+                sources_ids.add(source_identifier)
+    return sources_ids
     
 def get_number_of_records(response):
     tree = ET.ElementTree(ET.fromstring(response))

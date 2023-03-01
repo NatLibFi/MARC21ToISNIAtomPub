@@ -1,11 +1,8 @@
 import unittest
-import configparser
-import json
 import os
 import shutil
 import sys
-from unittest.mock import Mock
-from marc21_converter import MARC21Converter
+from unittest import mock
 from converter import Converter
 from tools import aleph_seq_reader 
 
@@ -28,22 +25,25 @@ class MARC21OutputTest(unittest.TestCase):
             "--authority_files", cls.authority_files,
             "--resource_files", cls.resource_files,
             "--output_directory", cls.output_directory,
-            "--identifier", "ID"
+            "--identifier", "ID",
+            "--config_file_path", "tests/config.ini"
         ])    
-        cls.c = Converter()
-        cls.mc = MARC21Converter()
-        cls.config = configparser.ConfigParser()
-        cls.config.read('tests/config.ini')
-        cls.mc.cataloguers = json.loads(cls.config['SETTINGS'].get('cataloguers'))
+        cls.patch = mock.patch.dict(os.environ, {"ISNI_USER": "", "ISNI_PASSWORD": ""})
+        cls.patch.start()
+        c = Converter()
         cls.args = MockArgs()
         cls.args.output_marc_fields = cls.output_marc_fields
 
-        cls.isnis = {'000000001': '0000000000000001',
-                     '000000002': '0000000000000002',
-                     '000000003': '0000000000000003',
-                     '000000004': '0000000000000004'}
-        cls.mc.records = cls.c.converter.records
-        cls.mc.write_isni_fields(cls.isnis, cls.args)
+        cls.isnis = {'000000001': {'isni': '0000000000000001'},
+                     '000000002': {'isni': '0000000000000002'},
+                     '000000003': {'isni': '0000000000000003'},
+                     '000000004': {'isni': '0000000000000004'}
+                    }
+        records = c.converter.create_isni_fields(cls.isnis)
+        cls.isni_records = {}
+        for record in records:
+            cls.isni_records[record['001'].data] = record
+        c.converter.write_isni_fields(cls.output_marc_fields, records)
         input_reader = aleph_seq_reader.AlephSeqReader(open(cls.authority_files, 'r', encoding="utf-8"))
         output_reader = aleph_seq_reader.AlephSeqReader(open(cls.output_marc_fields, 'r', encoding="utf-8"))
         cls.input_records = []
@@ -51,7 +51,7 @@ class MARC21OutputTest(unittest.TestCase):
         for record in input_reader:
             cls.input_records.append(record)
         for record in output_reader:
-            cls.output_records.append(record)    
+            cls.output_records.append(record)
         input_reader.close()
         output_reader.close()
         
@@ -68,8 +68,8 @@ class MARC21OutputTest(unittest.TestCase):
             input_id = input_record['001'].data
             pairs[input_id] = {'input': input_record}
             isni = None
-            if input_id in self.isnis:
-                isni = self.isnis[input_id]
+            if input_id in self.isni_records:
+                isni = self.isni_records[input_id]
                 if isni:
                     for output_record in self.output_records:
                         output_id = output_record['001'].data
@@ -96,7 +96,7 @@ class MARC21OutputTest(unittest.TestCase):
                 for field in output_record.get_fields('024'):
                     for sf in field.get_subfields('2'):
                         if sf == 'isni':
-                            self.assertEqual(field['a'], self.isnis[id])
+                            self.assertEqual(field['a'], self.isnis[id]['isni'])
                             tested_ids.append(id)
         self.assertEqual(sorted(test_record_ids), sorted(tested_ids))
 

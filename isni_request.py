@@ -93,24 +93,25 @@ def create_resources(root, resource_data):
             create_subelement(resource, r, 'creationRole')
             titleOfWork = ET.SubElement(resource, 'titleOfWork')
             create_subelement(titleOfWork, r, 'title')
-        
-        if r['identifiers'].get('ISRC'):
-            for identifier in r['identifiers']['ISRC']:
-                isrc = ET.SubElement(titleOfWork, 'isrc')
-                isrc.text = identifier
-        if r.get('publisher'):
-            imprint = ET.SubElement(titleOfWork, 'imprint')
-            create_subelement(imprint, r, 'publisher')
-            create_subelement(imprint, r, 'date')
-        
-        for identifier_type in r['identifiers']:
-            if not identifier_type == 'ISRC':
-                for value in r['identifiers'][identifier_type]:
-                    identifier = ET.SubElement(titleOfWork, 'identifier')
-                    identifierValue = ET.SubElement(identifier, 'identifierValue')
-                    identifierValue.text = value
-                    identifierType = ET.SubElement(identifier, 'identifierType')
-                    identifierType.text = identifier_type
+
+            if r.get('identifiers'):
+                if r['identifiers'].get('ISRC'):
+                    for identifier in r['identifiers']['ISRC']:
+                        isrc = ET.SubElement(titleOfWork, 'isrc')
+                        isrc.text = identifier
+            if r.get('publisher'):
+                imprint = ET.SubElement(titleOfWork, 'imprint')
+                create_subelement(imprint, r, 'publisher')
+                create_subelement(imprint, r, 'date')
+            if r.get('identifiers'):
+                for identifier_type in r['identifiers']:
+                    if not identifier_type == 'ISRC':
+                        for value in r['identifiers'][identifier_type]:
+                            identifier = ET.SubElement(titleOfWork, 'identifier')
+                            identifierValue = ET.SubElement(identifier, 'identifierValue')
+                            identifierValue.text = value
+                            identifierType = ET.SubElement(identifier, 'identifierType')
+                            identifierType.text = identifier_type
 
 def validate_isni_id(isni_id):
     """Validate ISNI identifier in case of typos"""

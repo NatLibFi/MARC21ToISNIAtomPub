@@ -4,6 +4,7 @@ import xml.etree.cElementTree as ET
 from lxml import etree
 import os
 import io
+import re
 import sys
 import openpyxl
 import argparse
@@ -36,7 +37,9 @@ class Converter():
         parser.add_argument("-v", "--validation_file",
             help="Enter file path of ISNI Atom Pub Request XSD file to validate XML requests")
         parser.add_argument("-i", "--identifier",
-            help="Identifiers of the database of requestor, e. g. FI-ASTERI-N", required=True)
+            help="Identifiers of the database of requestor, e. g. FI-ASTERI-N")
+        parser.add_argument("-o", "--origin",
+            help="Source code of origin, e. g. NLFIN")
         parser.add_argument("-c", "--concat", action='store_true',
             help="Concatenate XML request into one file")
         parser.add_argument("-D", "--dirmax", type=int,
@@ -55,13 +58,19 @@ class Converter():
         input_group.add_argument("-I", "--input_raport_list",
             help="Path of CSV file containing merge instructions for ISNI requests")
         parser.add_argument("-R", "--output_raport_list",
-            help="File name of CSV file raport for unsuccesful ISNI requests")
+            help="File path of CSV file raport for unsuccesful ISNI requests")
         parser.add_argument("-O", "--output_marc_fields",
-            help="File name for Aleph sequential MARC21 fields code 024 where received ISNI identifiers are written along recent identifiers")
+            help="File path for Aleph sequential MARC21 fields code 024 where received ISNI identifiers are written along recent identifiers")
         parser.add_argument("-m", "--mode",
             help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'send', 'test'], required=True)
+        parser.add_argument("-F", "--config_file_path",
+            help="File path for configuration file structured for Python ConfigParser")
         args = parser.parse_args()
         self.converter = None
+        self.modified_after = None
+        self.created_after = None
+        self.config = configparser.ConfigParser()
+        self.config.read(args.config_file_path)
         self.convert_to_atompub(args)
 
     def convert_to_atompub(self, args):
@@ -70,21 +79,11 @@ class Converter():
         :param args: command line arguments parsed by ConfigParser
         """
         logging.getLogger().setLevel(logging.INFO)
-        self.modified_after = None
-        self.created_after = None
-        self.config = configparser.ConfigParser()
-        directory = os.path.realpath(os.path.join(os.path.dirname(__file__)))
-        self.config.read(os.path.join(directory, 'config.ini'))
-        section = self.config['ISNI SRU API']
-        self.sru_api_query = api_query.APIQuery(config_section=section,
-                                      username=os.environ['ISNI_USER'],
-                                      password=os.environ['ISNI_PASSWORD'])
-        if args.mode in ["send", "test"]:
-            if args.output_raport_list:
-                self.raport_writer = xlsx_raport_writer.RaportWriter(args.output_raport_list)
-            else:
-                logging.error("Parameter -orl/--output_raport_list missing. Give file path for output raport")
-                sys.exit(2)
+        if args.format in ['send', 'test']:
+            section = self.config['ISNI SRU API']
+            self.sru_api_query = api_query.APIQuery(config_section=section,
+                                        username=os.environ['ISNI_USER'],
+                                        password=os.environ['ISNI_PASSWORD'])
         if args.modified_after:
             self.modified_after = datetime.date(datetime.strptime(args.modified_after, "%Y-%m-%d"))
         if args.created_after:
@@ -106,7 +105,7 @@ class Converter():
             with open(args.id_list, 'r', encoding='utf-8') as fh:
                 for row in fh:
                     requested_ids.add(row.rstrip())
-        
+
         merge_instructions = {}
         if args.input_raport_list:
             wb = openpyxl.load_workbook(args.input_raport_list)
@@ -133,7 +132,7 @@ class Converter():
         if args.format in ['marc21', 'alephseq']:
             self.converter = MARC21Converter(self.config)
         elif args.format == 'gramex':
-            self.converter = GramexConverter()
+            self.converter = GramexConverter(self.config)
         records = self.converter.get_authority_data(args, requested_ids)
         concat = False
         xmlschema = None
@@ -156,6 +155,8 @@ class Converter():
         logging.info("Starting to convert records...")
 
         isnis = {}
+        if args.output_raport_list:
+            raport_writer = xlsx_raport_writer.RaportWriter(args.output_raport_list)
         for record_id in records:
             merge_instruction = None
             merge_identifiers = []
@@ -187,30 +188,35 @@ class Converter():
                     continue
             if args.mode in ["send", "test"]:
                 logging.info("Sending record %s"%record_id)
-                response = self.send_xml(xml, args.mode)
+                response = self.send_xml(xml, args.mode, args.origin)
                 if 'possible matches' in response:
-                    possible_matches = []
-                    for pm in response['possible matches']:
-                        if 'id' in pm:
-                            result = self.sru_api_query.search_with_id('ppn', pm['id'])
-                            isni_id = parse_sru_response.get_isni_identifier(result)
-                            if isni_id and len(isni_id) == 16:
-                                pm['id'] = isni_id
+                    ppn_isni_dict = {}
+                    for ppn in response['possible matches']:
+                        if ppn:
+                            result = self.sru_api_query.search_with_id('ppn', ppn)
+                            isni_ids = parse_sru_response.get_isni_identifiers(result)
+                            source_ids = parse_sru_response.get_source_identifiers(result, 'NLFIN')
+                            response['possible matches'][ppn]['source ids'] = [re.sub("[\(].*?[\)]", "", source_id) for source_id in source_ids]
+                            if isni_ids['isni']:
+                                isni = isni_ids['isni']
+                                ppn_isni_dict[ppn] = isni   
                         else:
-                            logging.error('Record %s has missing possible match id'%record_id)
-                    if len(possible_matches) == 1:
-                        if possible_matches[0] == records[record_id]['ISNI']:
-                            xml = create_xml(records[record_id], records[record_id]['ISNI'])
-                            if xmlschema:
-                                if not self.valid_xml(record_id, xml, xmlschema):
-                                    sys.exit(2)
-                            response = self.send_xml(xml, args.mode)
-                            if 'possible matches' in response:
-                                response['error'] = 'Resubmit for record failed'
+                            response['errors'].append('Record has possible match, but id missing in ISNI response')
+                    for ppn in ppn_isni_dict:
+                        isni = ppn_isni_dict[ppn]
+                        response['possible matches'][isni] = response['possible matches'][ppn]
+                        del(response['possible matches'][ppn])
 
                 if 'isni' in response:
-                    isnis[record_id] = response['isni']
-                self.raport_writer.handle_response(response, record_id, records[record_id])
+                    if records[record_id]['ISNI']:
+                        if records[record_id]['ISNI'] != response['isni']:
+                            result = self.sru_api_query.search_with_id('isn',response['isni'])
+                            response['deprecated isnis'] = parse_sru_response.get_isni_identifiers(result)['deprecated isnis']
+
+                response['errors'].extend(records[record_id]['errors'])
+                isnis[record_id] = response
+                if args.output_raport_list:
+                    raport_writer.handle_response(response, record_id, records[record_id])
             elif args.mode == "write":
                 if args.concat:
                     xml_path = concat_path
@@ -223,7 +229,9 @@ class Converter():
             with open(args.output_directory+"/concat.xml", 'ab+') as concat_file:
                 concat_file.write(bytes("</root>", "UTF-8"))
         if isnis:
-            self.converter.write_isni_fields(isnis, args)
+            isni_records = self.converter.create_isni_fields(isnis)
+            if args.output_marc_fields:
+                self.converter.write_isni_fields(args.output_marc_fields, isni_records)
 
     def valid_xml(self, record_id, xml, xmlschema):
         try:
@@ -251,10 +259,11 @@ class Converter():
             xmlfile.write(bytes(xml, 'UTF-8'))
             xmlfile.close()
 
-    def send_xml(self, xml, mode):
+    def send_xml(self, xml, mode, origin=""):
         """
         :param xml: string converted XML elementtree in ISNI AtomPub format
         :param mode: 'send' or 'test' to choose between ISNI production and accept database
+        :param origin:
         """
         headers = {'Content-Type': 'application/atom+xml; charset=utf-8'}
         if mode == 'send':
@@ -263,7 +272,11 @@ class Converter():
             section = self.config['ISNI ATOMPUB TEST API']
         else:
             logging.error("Unknown sending mode in mode parameter %s"%mode)
-        response = requests.post(section.get('baseurl'), data=xml.encode('utf-8'), headers=headers)
+        url = section.get('baseurl')
+        if origin:
+            url += 'ORIGIN=' + origin
+
+        response = requests.post(url, data=xml.encode('utf-8'), headers=headers)
         xml = response.text
         parsed_response = parse_atompub_response.get_response_data_from_response_text(xml)
         return parsed_response

@@ -63,13 +63,11 @@ class RaportWriter():
             else:
                 cells.append('')
             cells.append('')
-            for pm in response['possible matches']:
-                cells.append(pm['id'])
-                if 'evaluation score' in pm:
-                    cells.append(pm['evaluation score'])
+            for id in response['possible matches']:
+                cells.append(id)
             self.write_response('epäonnistuneet', cells)
-        elif response.get('error'):
-            cells.extend(response['error'])
+        elif response.get('errors'):
+            cells.extend(response['errors'])
             self.write_response('epäonnistuneet', cells)
         elif response.get('reason'):
             cells.append(response['reason'])

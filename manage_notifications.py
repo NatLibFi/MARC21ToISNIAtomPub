@@ -52,7 +52,8 @@ class ISNI_notification_checker():
                             self.isni_ids[id_type][isni] = set()
                         self.isni_ids[id_type][isni].add(id)
         config = configparser.ConfigParser()
-        config.read('config.ini')
+        directory = os.path.realpath(os.path.join(os.path.dirname(__file__)))
+        config.read(os.path.join(directory, 'config.ini'))
         section = config['ISNI SRU API']
         if self.args.update:
             self.api_query = api_query.APIQuery(config_section=section,

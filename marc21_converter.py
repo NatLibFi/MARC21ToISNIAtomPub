@@ -1,18 +1,18 @@
 import logging
+from datetime import datetime
 from resource_list import ResourceList
 from term_encoder import TermEncoder
 from validators import Validator
 from tools import api_query
 from tools import parse_sru_response
 from tools import parse_oai_response
-from pymarc import MARCReader
+from pymarc import MARCReader, Field
 from tools import aleph_seq_reader  
 import copy
 import io
 import json
 import re
 import sys
-import configparser
 
 class MARC21Converter:
     """
@@ -21,7 +21,6 @@ class MARC21Converter:
     def __init__(self, config):
         self.term_encoder = TermEncoder()
         self.validator = Validator()
-        self.config = configparser.ConfigParser()
         self.config = config
         self.records = {}
         self.resources = None
@@ -45,7 +44,6 @@ class MARC21Converter:
                         parameters = {'doc_num': linked_identifier}
                         response = self.oai_x_query.api_search(parameters=parameters)
                         marc_record = parse_oai_response.get_records(response)[0]
-                        #if not record in marc_records:
                         if marc_record['001']:
                             marc_records.append(marc_record)
                             self.get_linked_records(marc_record, marc_records, identifiers)
@@ -79,8 +77,9 @@ class MARC21Converter:
             logging.info("Requesting authority records with API")
             identifiers = []
             if requested_ids:
-                for identifier in requested_ids: 
-                    identifiers.append(identifier)
+                for identifier in requested_ids:
+                    if identifier:
+                        identifiers.append(identifier)
             elif args.modified_after or args.created_after or args.until:
                 section = self.config['AUT OAI-PMH API']                      
                 oai_pmh_query =  api_query.APIQuery(config_section=section)
@@ -106,12 +105,18 @@ class MARC21Converter:
                         response = oai_pmh_query.api_search(token_parameters=token_parameters)
                         identifiers.extend(parse_oai_response.get_identifiers(response))
                         token = parse_oai_response.get_resumption_token(response)
+                if not identifiers:
+                    logging.error("No updated records found within time interval given in parameters")
+                    sys.exit(2)
             else:
                 logging.error("Command line argument modified_after required if authority file not given")
                 sys.exit(2)
             section = self.config['AUT X API']                      
             self.oai_x_query = api_query.APIQuery(config_section=section)                                           
             requested_ids.update(identifiers)
+            if not requested_ids:
+                logging.error("No records found for conversion")
+                sys.exit(2)
             for identifier in identifiers:
                 parameters = {'doc_num': identifier}
                 response = self.oai_x_query.api_search(parameters=parameters)
@@ -179,6 +184,10 @@ class MARC21Converter:
                 for sf in field.get_subfields('a'):
                     if sf in ["TEST", "DELETED"]:
                         removable = True
+            for field in record.get_fields('924'):
+                for sf in field.get_subfields('x'):
+                    if sf in ["KESKEN-ISNI", "KESKEN-ISNI-2"]:
+                        removable = True
             if removable:
                 requested_ids.remove(record_id)
                 continue
@@ -195,6 +204,7 @@ class MARC21Converter:
             identity = identities[record_id]
             identity['modification date'] = None
             identity['creation date'] = None
+            identity['errors'] = []
             # get cataloging identifiers whose modification to records are neglected
             try:
                 self.cataloguers = json.loads(self.config['SETTINGS'].get('cataloguers'))
@@ -286,9 +296,11 @@ class MARC21Converter:
                         if field['2'] in ["viaf", "orcid", "wikidata"]:
                             identifier_type = field['2'].upper()     
                             if field['2'] == "orcid":
-                                identifier = self.validator.check_ORCID(field['a'])
-                                if not identifier:
-                                    logging.error("ORCID %s: invalid in record %s"%(field['a'], record_id))
+                                valid = self.validator.valid_ORCID(field['a'])
+                                if valid:
+                                    identifier = field['a']
+                                else:
+                                    identity['errors'].append("ORCID invalid in record")
                             elif field['2'] == "wikidata":               
                                 identifier = identifier.replace('https://www.wikidata.org/wiki/', '')
                             if identifier:
@@ -316,8 +328,8 @@ class MARC21Converter:
                     for sf in field.get_subfields("a"):
                         if self.validator.valid_language_code(sf):
                             language_codes.append(sf)
-                        else:    
-                            logging.error("%s: wrong language code in field: %s"%(record_id, field))
+                        else:
+                            identity['errors'].append('wrong language code in field 377')
                 identity['languageOfIdentity'] = language_codes
 
                 country_codes = []
@@ -362,7 +374,7 @@ class MARC21Converter:
                                 resource['language'] = None
                                 resource['role'] = 'author'
                             else:
-                                logging.error("Field %s malformatted in record: %s"%(field, record_id))
+                                identity['errors'].append("ENNAKKOTIEDOT in field 670 malformatted")
                     if resource:    
                         resource['creationClass'] = None
                         resource['creationRole'] = 'aut'
@@ -384,7 +396,7 @@ class MARC21Converter:
                         if related_name.get('identifier'):
                             self.get_linked_ids(identities, related_name['identifier'], ids, mergeable_relations)
                         else:
-                            logging.error('Record %s is missing one of its 510 0 subfields'%record_id)
+                            identity['errors'].append("Missing subfield 0 in field 510")
                 if len(ids) > 1:
                     data = {}
                     merged_ids.extend(ids)
@@ -433,7 +445,7 @@ class MARC21Converter:
         for cluster in merged_id_clusters:
             for cluster_id in cluster:
                 if cluster[cluster_id]['delete'] and cluster[cluster_id]['merge']:
-                    logging.error("Record %s has related identities with same ISNI, but lacking 983 field"%cluster_id)
+                    identities[cluster_id]['error'].append("Record has related identities with same ISNI, but lacking 983 field")
                     for cluster_id in cluster:
                         not_requested_ids.add(cluster_id)
             for cluster_id in cluster:
@@ -942,59 +954,151 @@ class MARC21Converter:
 
         return resources[:self.max_number_of_titles]
 
-    def write_isni_fields(self, isnis, args):
+    def create_isni_fields(self, isni_response):
         """
         A function to write ISNI identifiers into Aleph Sequential format.
         Write ISNI identifier even if it exists in record in order to
         update record to get cataloguer name to record.
-        :param isnis: a dict cotaining local identifiers and assigned ISNIs
-        :param args: command line arguments
+        :param isni_response: a dict containing assigned ISNIs and possible matches
         """
-        with io.open(args.output_marc_fields, 'w', encoding = 'utf-8', newline='\n') as output:
-            for record_id in isnis:
-                record = self.records[record_id]
-                isni_changed = False
-                isni_missing = True
-                catalogued = False
-                fields = []
-                isni = isnis[record_id]
-                for field in record.get_fields("CAT"):
-                    for sf in field.get_subfields('a'):
-                        if sf in self.cataloguers:
-                            catalogued = True
+
+        records = []
+        for record_id in isni_response:
+            record = self.records[record_id]
+            isni_changed = False
+            isni_found = False
+            update_fields = False
+            removable_fields = []
+            result = isni_response[record_id]
+            date_today = str(datetime.today().date())
+            possible_matches = []
+            isni = None
+            if result.get('errors'):
+                update_fields = True
+                record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI']))
+                for error in result['errors']:
+                    record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['q', error]))
+            elif 'possible matches' in result:
+                update_fields = True
+                status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
+                record.add_ordered_field(status_field)
+                for id in result['possible matches']:
+                    possible_matches.append(id)
+                for field in record.get_fields("924"):
+                    if field['a'] in result['possible matches']:
+                        field.add_subfield('d', date_today)
+                        possible_matches.remove(field['a'])
+                for id in possible_matches:
+                    subfields = ['a', id]
+                    if len(id) == 9:
+                        subfields.extend(['2', 'isni-ppn'])
+                    else:
+                        subfields.extend(['2', 'isni'])
+                    if record_id in result['possible matches'][id]['source ids']:
+                        if len(result['possible matches']) == 1:
+                            status_field.add_subfield('q', 'sparse record')
+                            continue
+                        else:
+                            subfields.extend(['q', '=tämä tietue'])
+                    elif result['possible matches'][id]['source ids']:
+                        subfields.extend(['q', '=Asterin tietue(et): ' + ', '.join(result['possible matches'][id]['source ids'])])
+                    subfields.extend(['d', date_today])
+                    field = Field(tag = '924', indicators = ['7',' '], subfields=subfields)
+                    record.add_ordered_field(field)
+            elif 'reason' in result:
+                update_fields = True
+                status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
+                if result['reason'] == 'no match initial database':
+                    status_field.add_subfield('q', 'sparse record')
+                else:
+                    status_field.add_subfield('q', result['reason'])
+                record.add_ordered_field(status_field)
+            elif 'isni' in result:
+                isni = result['isni']
+                for field in record.get_fields("924"):
+                    update_fields = True
+                    removable = True
+                    if field['a']:
+                        if self.validator.valid_ISNI_checksum(field['a']) and isni != field['a']:
+                            removable = False
+                            while field['d']:
+                                field.delete_subfield('d')
+                            while field['q']:
+                                field.delete_subfield('q')
+                            field.add_subfield('q', 'isNot')
+                    if removable:
+                        removable_fields.append(field)
+
+                deprecated_isnis = {}
+                if 'deprecated isnis' in result:
+                    for deprecated_isni in result['deprecated isnis']:
+                        deprecated_isnis[deprecated_isni] = False
                 for field in record.get_fields("024"):
-                    isni_found = False
                     if field['2'] and field['a']:
                         if field['2'] == "isni":
-                            isni_found = True
-                            isni_missing = False
                             if field['a'] != isni:
-                                isni_changed = True
-                    if not isni_found:
-                        f = self.create_aleph_seq_field(record_id,
-                                                        field.tag,
-                                                        field.indicators[0],
-                                                        field.indicators[1],
-                                                        field.subfields)
-                        fields.append(f)
-                if isni_changed or isni_missing or not catalogued:
-                    for f in fields:
-                        output.write(f + "\n")
-                    output.write(record_id + " 0247  L $$a" + isni + "$$2isni\n")
+                                if field['a'].replace(' ', '') == isni:
+                                    field['a'] = field['a'].replace(' ', '')
+                                else:
+                                    removable_fields.append(field)
+                                    isni_changed = True
+                                update_fields = True
+                            else:
+                                isni_found = True
+                    if field['2'] and field['z']:
+                        if field['2'] == "isni":
+                            if field['z'] not in deprecated_isnis or deprecated_isnis[field['z']]:
+                                removable_fields.append(field)
+                                update_fields = True
+                            deprecated_isnis[field['z']] = True
+                if isni_changed or not isni_found:
+                    subfields = ['a', isni]
+                    subfields.extend(['2', 'isni'])
+                    field = Field(tag = '024', indicators = ['7',' '], subfields=subfields)
+                    record.add_ordered_field(field)
+                    update_fields = True
+                for deprecated_isni in deprecated_isnis:
+                    if not deprecated_isnis[deprecated_isni]:
+                        subfields = ['z', deprecated_isni]
+                        subfields.extend(['2', 'isni'])
+                        record.add_ordered_field(Field(tag = '024', indicators = ['7',' '], subfields=subfields))
+                        update_fields = True
+
+            if update_fields:
+                for field in removable_fields:
+                    record.remove_field(field)
+                records.append(record)
     
-    def create_aleph_seq_field(self, record_id, tag, indicator_1, indicator_2, subfields):
+        return records
+
+    def write_isni_fields(self, file_path, records):
+        with io.open(file_path, 'w', encoding = 'utf-8', newline='\n') as fh:
+            for record in records:
+                field = Field(tag="001", data=str(record.leader))
+                fh.write(self.create_aleph_seq_field(record['001'].data, field, leader=True) + "\n")
+                for field in record.get_fields():
+                    fh.write(self.create_aleph_seq_field(record['001'].data, field) + "\n")
+
+    def create_aleph_seq_field(self, record_id, field, leader=False):
         """
         converts MARC21 field data into Aleph library system's sequential format
         :param record_id: a dict cotaining local identifiers and assigned ISNIs
-        :param tag: MARC field tag
-        :param indicator_1: first MARC field indicator 
-        :param indicator_2: second MARC field indicator 
-        :param subfields: a list of subfields with subfield code and content one after another
+        :param field: Field object of pymarc library
+        :param leader: Boolean value that determines whether field is leader (to preserve special chars of Aleph sequential format)
         """
         seq_field = record_id
-        seq_field += " " + tag + indicator_1 + indicator_2
-        seq_field += " L "
-        for idx in range(0, len(subfields), 2):
-            seq_field += "$$"
-            seq_field += subfields[idx] + subfields[idx + 1]
+        if leader:
+            field.tag = "LDR"
+        seq_field += " " + field.tag
+        if hasattr(field, "data") or leader:
+            seq_field += "   L " + field.data
+        else:
+            seq_field += field.indicators[0] + field.indicators[1] + " L "
+            for idx in range(0, len(field.subfields), 2):
+                seq_field += "$$"
+                code = field.subfields[idx]
+                subfield = field.subfields[idx + 1]
+                if field.tag in ['100', '110', '111', '400', '410', '411', '500', '510', '511']:
+                    subfield = subfield.replace('FI-ASTERI-N', 'FIN11')
+                seq_field += code + subfield
         return seq_field

@@ -9,9 +9,8 @@ class GramexConverter:
     """
         A class to collect data from Gramex CSV files for ISNI Atom Pub XML format.
     """
-    def __init__(self):
-        self.config = configparser.ConfigParser()
-        self.config.read('config.ini')
+    def __init__(self, config):
+        self.config = config
     
     def convert_time_string(self, time_string):
         values = time_string.split('.')

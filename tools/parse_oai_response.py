@@ -9,7 +9,7 @@ import unicodedata
 import io
 
 NAMESPACES = {'oai': 'http://www.openarchives.org/OAI/2.0/'}
-              
+
 def startElementNS(self, name, qname, attrs):
     """Start element NS."""
 
@@ -17,7 +17,7 @@ def startElementNS(self, name, qname, attrs):
     self._text = []
 
     if element == "oai_marc":
-        self._record = Record()
+        self._record = Record(force_utf8=True)
     elif element == "fixfield":
         tag = attrs.getValue((None, u"id"))
         self._field = Field(tag)
@@ -37,13 +37,15 @@ def endElementNS(self, name, qname):
         text = unicodedata.normalize(self.normalize_form, u"".join(self._text))
     else:
         text = u"".join(self._text)
-
     if element == "oai_marc":
         self.process_record(self._record)
         self._record = None
     elif element == "fixfield":
-        self._field.data = text
-        self._record.add_field(self._field)
+        if self._field.tag == "LDR":
+            self._record.leader = text
+        else:
+            self._field.data = text
+            self._record.add_field(self._field)
         self._field = None
     elif element == "varfield":
         self._record.add_field(self._field)

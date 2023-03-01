@@ -5,20 +5,20 @@ import logging
 import xml.etree.ElementTree as ET
 
 def get_possible_matches(root):
-    possible_matches = []
+    possible_matches = {}
     for match in root.findall('possibleMatch'): 
-        possible_match = {}
+        id = None
         for ppn in match.findall('PPN'): 
-            possible_match['id'] = ppn.text 
+            id = ppn.text
+        possible_matches[id] = {'source ids': []}
         for evaluation_score in match.findall('evaluationScore'): 
-            possible_match['evaluation score'] = evaluation_score.text 
+            possible_matches[id]['evaluation score'] = evaluation_score.text
         for source in match.findall('source'): 
-            possible_match['source'] = source.text 
-        possible_matches.append(possible_match)
+            possible_matches[id]['source'] = source.text
     return possible_matches
 
 def parse_response_data(root):
-    parsed_data = {}
+    parsed_data = {'errors': []}
     for assigned in root.findall('ISNIAssigned'):
         for isni in assigned.findall('isniUnformatted'): 
             parsed_data['isni'] = isni.text.replace(" ", "")
@@ -36,11 +36,11 @@ def parse_response_data(root):
         parsed_data['sources'] = source_data
     for unassigned in root.findall('noISNI'):
         for ppn in unassigned.findall('PPN'): 
-            parsed_data['possible matches'] = [{'id': ppn.text}]
+            parsed_data['possible matches'] = {ppn.text: {'source ids': []}}
         possible_matches = get_possible_matches(unassigned)
         if possible_matches:
             if 'possible matches' in parsed_data:
-                parsed_data['possible matches'].extend(possible_matches)
+                parsed_data['possible matches'].update(possible_matches)
             else:
                 parsed_data['possible matches'] = possible_matches
         for reason in unassigned.findall('reason'):
@@ -55,10 +55,10 @@ def get_response_data_from_response_text(response):
         root = tree.getroot()
         parsed_data = parse_response_data(root)
     except ET.ParseError:
-        parsed_data['error'] = []
+        parsed_data['errors'] = []
         for line in response.splitlines():
             if line:
-                parsed_data['error'].append(line)
+                parsed_data['errors'].append(line)
     return parsed_data
 
 def get_response_data_from_xml_file(file_path):
