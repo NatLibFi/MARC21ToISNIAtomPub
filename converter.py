@@ -37,7 +37,7 @@ class Converter():
         parser.add_argument("-v", "--validation_file",
             help="Enter file path of ISNI Atom Pub Request XSD file to validate XML requests")
         parser.add_argument("-i", "--identifier",
-            help="Identifiers of the database of requestor, e. g. FI-ASTERI-N")
+            help="Identifier of the database of requestor, e. g. FI-ASTERI-N")
         parser.add_argument("-o", "--origin",
             help="Source code of origin, e. g. NLFIN")
         parser.add_argument("-c", "--concat", action='store_true',
@@ -79,7 +79,7 @@ class Converter():
         :param args: command line arguments parsed by ConfigParser
         """
         logging.getLogger().setLevel(logging.INFO)
-        if args.format in ['send', 'test']:
+        if args.mode in ['send', 'test']:
             section = self.config['ISNI SRU API']
             self.sru_api_query = api_query.APIQuery(config_section=section,
                                         username=os.environ['ISNI_USER'],
@@ -99,7 +99,6 @@ class Converter():
             sys.exit(2)
 
         logging.info("Conversion started: %s"%datetime.now().replace(microsecond=0).isoformat())
-
         requested_ids = set()
         if args.id_list:
             with open(args.id_list, 'r', encoding='utf-8') as fh:

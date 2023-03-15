@@ -186,10 +186,11 @@ class MARC21Converter:
                         removable = True
             for field in record.get_fields('924'):
                 for sf in field.get_subfields('x'):
-                    if sf in ["KESKEN-ISNI", "KESKEN-ISNI-2"]:
-                        removable = True
+                    if sf in ["KESKEN-ISNI", "KESKEN-ISNI-1", "KESKEN-ISNI-2"]:
+                        requested_ids.remove(record_id)
             if removable:
-                requested_ids.remove(record_id)
+                if record_id in requested_ids:
+                    requested_ids.remove(record_id)
                 continue
             if requested_ids and record_id not in requested_ids:
                 related_identities.add(record_id)
@@ -397,6 +398,7 @@ class MARC21Converter:
                             self.get_linked_ids(identities, related_name['identifier'], ids, mergeable_relations)
                         else:
                             identity['errors'].append("Missing subfield 0 in field 510")
+
                 if len(ids) > 1:
                     data = {}
                     merged_ids.extend(ids)

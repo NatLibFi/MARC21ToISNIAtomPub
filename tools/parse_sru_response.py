@@ -96,16 +96,19 @@ def get_deprecated_isnis(response):
 def get_source_identifiers(response, source_code):
     record_data = get_record_data(response)
     sources_ids = set()
-    for data in record_data:
-        for source in data.findall('responseRecord/ISNINotAssigned/ISNIMetadata/sources'):
-            source_identifier = None
-            code_of_source = None
-            for code_of_source in source.findall('codeOfSource'):
-                code_of_source = code_of_source.text
-            for source_identifier in source.findall('sourceIdentifier'):
-                source_identifier = source_identifier.text
-            if code_of_source == source_code:
-                sources_ids.add(source_identifier)
+    paths = ['responseRecord/ISNINotAssigned/ISNIMetadata/sources',
+             'responseRecord/ISNIAssigned/ISNIMetadata/sources']
+    for path in paths:
+        for data in record_data:
+            for source in data.findall(path):
+                source_identifier = None
+                code_of_source = None
+                for code_of_source in source.findall('codeOfSource'):
+                    code_of_source = code_of_source.text
+                for source_identifier in source.findall('sourceIdentifier'):
+                    source_identifier = source_identifier.text
+                if code_of_source == source_code:
+                    sources_ids.add(source_identifier)
     return sources_ids
     
 def get_number_of_records(response):
