@@ -185,9 +185,8 @@ class MARC21Converter:
                     if sf in ["TEST", "DELETED"]:
                         removable = True
             for field in record.get_fields('924'):
-                for sf in field.get_subfields('x'):
-                    if sf in ["KESKEN-ISNI", "KESKEN-ISNI-1", "KESKEN-ISNI-2"]:
-                        requested_ids.remove(record_id)
+                if field['x']:
+                    requested_ids.remove(record_id)
             if removable:
                 if record_id in requested_ids:
                     requested_ids.remove(record_id)
@@ -206,6 +205,7 @@ class MARC21Converter:
             identity['modification date'] = None
             identity['creation date'] = None
             identity['errors'] = []
+            identity['isNot'] = []
             # get cataloging identifiers whose modification to records are neglected
             try:
                 self.cataloguers = json.loads(self.config['SETTINGS'].get('cataloguers'))
@@ -311,7 +311,47 @@ class MARC21Converter:
                             isnis[record_id] = identifier
                 for identifier_type in identifiers:
                     identity['otherIdentifierOfIdentity'].append({'identifier': identifiers[identifier_type], 'type': identifier_type})
-                
+
+                general_instruction = None
+                for field in record.get_fields('924'):
+                    for sf in field.get_subfields('q'):
+                        if sf in ['merge', 'isNot']:
+                            if general_instruction == 'isNot' and sf == 'merge':
+                                general_instruction = 'merge'
+                            elif sf == 'isNot':
+                                general_instruction = 'isNot'
+                            elif sf == 'merge':
+                                general_instruction = 'merge'
+                for field in record.get_fields('924'):
+                    if not field['x']:
+                        identifier = None
+                        identifier_type = None
+                        field_instruction = None
+                        for sf in field.get_subfields('a'):
+                            identifier = sf
+                        for sf in field.get_subfields('q'):
+                            if sf in ['merge', 'isNot']:
+                                field_instruction = sf
+                        if not field_instruction:
+                            if general_instruction == 'isNot':
+                                field_instruction = general_instruction
+                        for sf in field.get_subfields('2'):
+                            identifier_type = sf
+                            if identifier_type == 'isni':
+                                identifier_type = 'ISNI'
+                            elif identifier_type == 'isni-ppn':
+                                identifier_type = 'PPN'
+                        if identifier and identifier_type:
+                            if field_instruction == 'merge':
+                                if identity['ISNI']:
+                                    if identity['ISNI'] != identifier:
+                                        identity['errors'].append("Field 024 ISNI and field 924 merge command are in conflict")
+                                if any(identifier['type'] in ['ISNI', 'PPN'] for identifier in identity['otherIdentifierOfIdentity']):
+                                    identity['errors'].append("Duplicate merge commands")
+                                identity['otherIdentifierOfIdentity'].append({'identifier': identifier, 'type': identifier_type})
+                            if field_instruction == 'isNot':
+                                identity['isNot'].append({'identifier': identifier, 'type': identifier_type})
+
                 for field in record.get_fields('046'):
                     # NOTE: it is assumed that only one MARC21 field for dates is used
                     dates = self.get_dates(field, identity['identityType'])
@@ -404,7 +444,7 @@ class MARC21Converter:
                     merged_ids.extend(ids)
                     for identifier in ids:
                         data[identifier] = {'ISNI': identities[identifier]['ISNI'],
-                                            'isNot': set(),
+                                            'isNot': [],
                                             'merge': set(),
                                             'delete': False}
                         if identifier in not_requested_ids:
@@ -417,7 +457,7 @@ class MARC21Converter:
                     if cluster_id != other_id:
                         if cluster[cluster_id]['ISNI'] and cluster[other_id]['ISNI']:
                             if cluster[cluster_id]['ISNI'] != cluster[other_id]['ISNI']:
-                                cluster[cluster_id]['isNot'].add(cluster[other_id]['ISNI'])
+                                cluster[cluster_id]['isNot'].append({'type': 'ISNI', 'identifier': cluster[other_id]['ISNI']})
                             else:
                                 if cluster_id not in not_requested_ids and other_id not in not_requested_ids:
                                     logging.error("Local identifiers %s and %s have same ISNI"%(cluster_id, other_id))
@@ -433,7 +473,7 @@ class MARC21Converter:
                                     clustered_ids[other_id].add(cluster_id)
                         if cluster[other_id]['ISNI']:
                             if cluster[cluster_id]['ISNI'] != cluster[other_id]['ISNI']:
-                                cluster[cluster_id]['isNot'].add(cluster[other_id]['ISNI'])
+                                cluster[cluster_id]['isNot'].append({'type': 'ISNI', 'identifier': cluster[other_id]['ISNI']})
         resource_ids = set()
         for record_id in requested_ids:
             if args.created_after or args.modified_after:
@@ -956,7 +996,7 @@ class MARC21Converter:
 
         return resources[:self.max_number_of_titles]
 
-    def create_isni_fields(self, isni_response):
+    def create_isni_fields(self, isni_response, identifier=""):
         """
         A function to write ISNI identifiers into Aleph Sequential format.
         Write ISNI identifier even if it exists in record in order to
@@ -975,6 +1015,7 @@ class MARC21Converter:
             date_today = str(datetime.today().date())
             possible_matches = []
             isni = None
+            status_field = None
             if result.get('errors'):
                 update_fields = True
                 record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI']))
@@ -983,12 +1024,16 @@ class MARC21Converter:
             elif 'possible matches' in result:
                 update_fields = True
                 status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
-                record.add_ordered_field(status_field)
                 for id in result['possible matches']:
                     possible_matches.append(id)
                 for field in record.get_fields("924"):
                     if field['a'] in result['possible matches']:
                         field.add_subfield('d', date_today)
+                        local_identifier = record_id
+                        if identifier:
+                            local_identifier = '(' + identifier + ')'
+                        text = "Asteri-id " + local_identifier + " lisättävä ISNIin tai tarkistettava että merge-merkintä oikein"
+                        status_field.add_subfield('q', text)
                         possible_matches.remove(field['a'])
                 for id in possible_matches:
                     subfields = ['a', id]
@@ -1014,7 +1059,6 @@ class MARC21Converter:
                     status_field.add_subfield('q', 'sparse record')
                 else:
                     status_field.add_subfield('q', result['reason'])
-                record.add_ordered_field(status_field)
             elif 'isni' in result:
                 isni = result['isni']
                 for field in record.get_fields("924"):
@@ -1041,6 +1085,7 @@ class MARC21Converter:
                             if field['a'] != isni:
                                 if field['a'].replace(' ', '') == isni:
                                     field['a'] = field['a'].replace(' ', '')
+                                    isni_found = True
                                 else:
                                     removable_fields.append(field)
                                     isni_changed = True
@@ -1067,6 +1112,12 @@ class MARC21Converter:
                         update_fields = True
 
             if update_fields:
+                if status_field:
+                    fields = record.get_fields('924')
+                    record.remove_fields('924')
+                    record.add_ordered_field(status_field)
+                    for field in fields:
+                        record.add_ordered_field(field)
                 for field in removable_fields:
                     record.remove_field(field)
                 records.append(record)

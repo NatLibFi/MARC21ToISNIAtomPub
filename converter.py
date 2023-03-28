@@ -125,7 +125,8 @@ class Converter():
                     if local_id in merge_instructions:
                         for col in ws.iter_cols(min_row=row[0].row, max_row=row[0].row, min_col=6, max_col=ws.max_column):
                             if col[0].value:
-                                merge_instructions[local_id]['identifiers'].append(str(col[0].value).strip())
+                                isni_identifier = self.validate_isni_id(str(col[0].value).strip())
+                                merge_instructions[local_id]['identifiers'].append(isni_identifier)
                         requested_ids.add(local_id)
 
         if args.format in ['marc21', 'alephseq']:
@@ -187,7 +188,9 @@ class Converter():
                     continue
             if args.mode in ["send", "test"]:
                 logging.info("Sending record %s"%record_id)
-                response = self.send_xml(xml, args.mode, args.origin)
+                response = {}
+                if not records[record_id]['errors']:
+                    response = self.send_xml(xml, args.mode, args.origin)
                 if 'possible matches' in response:
                     ppn_isni_dict = {}
                     for ppn in response['possible matches']:
@@ -228,7 +231,7 @@ class Converter():
             with open(args.output_directory+"/concat.xml", 'ab+') as concat_file:
                 concat_file.write(bytes("</root>", "UTF-8"))
         if isnis:
-            isni_records = self.converter.create_isni_fields(isnis)
+            isni_records = self.converter.create_isni_fields(isnis, args.identifier)
             if args.output_marc_fields:
                 self.converter.write_isni_fields(args.output_marc_fields, isni_records)
 
@@ -240,6 +243,16 @@ class Converter():
             return True
         except AssertionError as e:
             logging.error("Record %s XML AssertionError : %s"%(record_id, e))
+
+    def validate_isni_id(isni_id):
+        """Validate ISNI identifier in case of typos"""
+        isni_id = isni_id.replace(' ', '')
+        if len(isni_id) == 16:
+            return {'identifier': isni_id, 'type': 'ISNI'}
+        elif len(isni_id) == 9:
+            return {'identifier': isni_id, 'type': 'PPN'}
+        else:
+            logging.error('The length of ISNI identifier %s is not 9 or 16 characters'%isni_id)
 
     def write_xml(self, xml, file_path, concat):
         """
@@ -277,6 +290,7 @@ class Converter():
 
         response = requests.post(url, data=xml.encode('utf-8'), headers=headers)
         xml = response.text
+        print(xml)
         parsed_response = parse_atompub_response.get_response_data_from_response_text(xml)
         return parsed_response
 

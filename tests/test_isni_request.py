@@ -60,7 +60,7 @@ class ISNIRequestTest(unittest.TestCase):
                                                  'nameTitle': None},
                                 'relationType': 'hasMember'
                                }], 
-                 'isNot': ['0000000119405488']
+                 'isNot': [{'identifier': '0000000119405488', 'type': 'ISNI'}]
             }
 
         request = create_xml(data)
@@ -110,7 +110,7 @@ class ISNIRequestTest(unittest.TestCase):
                                                  'nameTitle': None},
                                 'relationType': 'co-author'
                                }], 
-                 'isNot': ['0000000119405488']
+                 'isNot': [{'identifier': '0000000119405488', 'type': 'ISNI'}]
             }
 
         request = create_xml(data)

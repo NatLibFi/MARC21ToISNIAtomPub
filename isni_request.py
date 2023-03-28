@@ -113,16 +113,6 @@ def create_resources(root, resource_data):
                             identifierType = ET.SubElement(identifier, 'identifierType')
                             identifierType.text = identifier_type
 
-def validate_isni_id(isni_id):
-    """Validate ISNI identifier in case of typos"""
-    isni_id = isni_id.replace(' ', '')
-    if len(isni_id) == 16:
-        return {'identifier': isni_id, 'type': 'ISNI'}
-    elif len(isni_id) == 9:
-        return {'identifier': isni_id, 'type': 'PPN'}
-    else:
-        logging.error('The length of ISNI identifier %s is not 9 or 16 characters'%isni_id)  
-
 def create_xml(record_data, instruction=None, isni_identifiers=[]):
     """
     Creates ISNI AtomPub XML
@@ -138,9 +128,9 @@ def create_xml(record_data, instruction=None, isni_identifiers=[]):
         isni_id = None
         local_isni = None
         if instruction == "merge" and isni_identifiers:
-            isni_id = validate_isni_id(isni_identifiers[0])
+            isni_id = isni_identifiers[0]
         if record_data.get('ISNI'):
-            local_isni = validate_isni_id(record_data['ISNI'])
+            local_isni = {'identifier': record_data['ISNI'], 'type': 'ISNI'}
         if isni_id and local_isni:
             if isni_id['identifier'] != local_isni['identifier']:
                 logging.error("ISNI identifier %s in merge instruction differs from local ISNI %s"%(isni_id, local_isni))
@@ -217,13 +207,11 @@ def create_xml(record_data, instruction=None, isni_identifiers=[]):
                 for isni_id in record_data['isNot']:
                     isni_identifiers.append(isni_id)
             for isni_id in isni_identifiers:
-                isni_id = validate_isni_id(isni_id)
-                if isni_id:
-                    isNot = ET.SubElement(request, 'isNot')
-                    isNot.set("identityType", record_data['identityType'])
-                    relationName = ET.SubElement(isNot, 'relationName')
-                    identifier = ET.SubElement(relationName, isni_id['type'])
-                    identifier.text = isni_id['identifier']
+                isNot = ET.SubElement(request, 'isNot')
+                isNot.set("identityType", record_data['identityType'])
+                relationName = ET.SubElement(isNot, 'relationName')
+                identifier = ET.SubElement(relationName, isni_id['type'])
+                identifier.text = isni_id['identifier']
         if record_data.get('isRelated'):
             for relation in record_data['isRelated']:
                 isRelated = ET.SubElement(request, 'isRelated')

@@ -49,13 +49,12 @@ def parse_response_data(root):
     return parsed_data
 
 def get_response_data_from_response_text(response):
-    parsed_data = {}
+    parsed_data = {'errors': []}
     try:
         tree = ET.ElementTree(ET.fromstring(response))
         root = tree.getroot()
         parsed_data = parse_response_data(root)
     except ET.ParseError:
-        parsed_data['errors'] = []
         for line in response.splitlines():
             if line:
                 parsed_data['errors'].append(line)
