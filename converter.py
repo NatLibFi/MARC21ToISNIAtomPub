@@ -104,7 +104,6 @@ class Converter():
             with open(args.id_list, 'r', encoding='utf-8') as fh:
                 for row in fh:
                     requested_ids.add(row.rstrip())
-
         merge_instructions = {}
         if args.input_raport_list:
             wb = openpyxl.load_workbook(args.input_raport_list)
@@ -186,9 +185,10 @@ class Converter():
             if xmlschema:
                 if not self.valid_xml(record_id, xml, xmlschema):
                     continue
+
             if args.mode in ["send", "test"]:
                 logging.info("Sending record %s"%record_id)
-                response = {}
+                response = {'errors': []}
                 if not records[record_id]['errors']:
                     response = self.send_xml(xml, args.mode, args.origin)
                 if 'possible matches' in response:
@@ -214,7 +214,6 @@ class Converter():
                         if records[record_id]['ISNI'] != response['isni']:
                             result = self.sru_api_query.search_with_id('isn',response['isni'])
                             response['deprecated isnis'] = parse_sru_response.get_isni_identifiers(result)['deprecated isnis']
-
                 response['errors'].extend(records[record_id]['errors'])
                 isnis[record_id] = response
                 if args.output_raport_list:
@@ -290,7 +289,6 @@ class Converter():
 
         response = requests.post(url, data=xml.encode('utf-8'), headers=headers)
         xml = response.text
-        print(xml)
         parsed_response = parse_atompub_response.get_response_data_from_response_text(xml)
         return parsed_response
 

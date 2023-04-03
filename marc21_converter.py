@@ -1003,7 +1003,6 @@ class MARC21Converter:
         update record to get cataloguer name to record.
         :param isni_response: a dict containing assigned ISNIs and possible matches
         """
-
         records = []
         for record_id in isni_response:
             record = self.records[record_id]
@@ -1032,7 +1031,7 @@ class MARC21Converter:
                         local_identifier = record_id
                         if identifier:
                             local_identifier = '(' + identifier + ')'
-                        text = "Asteri-id " + local_identifier + " lisättävä ISNIin tai tarkistettava että merge-merkintä oikein"
+                        text = "Asteri-id " + local_identifier + " " + record_id + " lisättävä ISNIin tai tarkistettava että merge-merkintä oikein"
                         status_field.add_subfield('q', text)
                         possible_matches.remove(field['a'])
                 for id in possible_matches:

@@ -23,8 +23,6 @@ def parse_response_data(root):
         for isni in assigned.findall('isniUnformatted'): 
             parsed_data['isni'] = isni.text.replace(" ", "")
         possible_matches = get_possible_matches(assigned)
-        if possible_matches:
-            parsed_data['possible matches'] = possible_matches
         source_data = []
         for metadata in assigned.findall('ISNIMetadata'):
             for sources in metadata.findall('sources'):
@@ -35,7 +33,7 @@ def parse_response_data(root):
                             source_data.append(source_identifier.text)
         parsed_data['sources'] = source_data
     for unassigned in root.findall('noISNI'):
-        for ppn in unassigned.findall('PPN'): 
+        for ppn in unassigned.findall('PPN'):
             parsed_data['possible matches'] = {ppn.text: {'source ids': []}}
         possible_matches = get_possible_matches(unassigned)
         if possible_matches:
@@ -58,6 +56,7 @@ def get_response_data_from_response_text(response):
         for line in response.splitlines():
             if line:
                 parsed_data['errors'].append(line)
+
     return parsed_data
 
 def get_response_data_from_xml_file(file_path):
