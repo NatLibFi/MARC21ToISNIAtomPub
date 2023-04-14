@@ -299,7 +299,7 @@ class MARC21Converter:
                             if field['2'] == "orcid":
                                 valid = self.validator.valid_ORCID(field['a'])
                                 if valid:
-                                    identifier = field['a']
+                                    identifier = field['a'].replace('https://orcid.org/', '')
                                 else:
                                     identity['errors'].append("ORCID invalid in record")
                             elif field['2'] == "wikidata":               
@@ -309,6 +309,7 @@ class MARC21Converter:
                         elif field['2'] == "isni":
                             identity['ISNI'] = identifier
                             isnis[record_id] = identifier
+
                 for identifier_type in identifiers:
                     identity['otherIdentifierOfIdentity'].append({'identifier': identifiers[identifier_type], 'type': identifier_type})
 
