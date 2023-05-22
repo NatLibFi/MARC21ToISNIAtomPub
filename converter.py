@@ -80,7 +80,10 @@ class Converter():
         """
         logging.getLogger().setLevel(logging.INFO)
         if args.mode in ['send', 'test']:
-            section = self.config['ISNI SRU API']
+            if args.mode == 'send':
+                section = self.config['ISNI SRU API']
+            if args.mode == 'test':
+                section = self.config['ISNI SRU TEST API']
             self.sru_api_query = api_query.APIQuery(config_section=section,
                                         username=os.environ['ISNI_USER'],
                                         password=os.environ['ISNI_PASSWORD'])
@@ -243,7 +246,7 @@ class Converter():
         except AssertionError as e:
             logging.error("Record %s XML AssertionError : %s"%(record_id, e))
 
-    def validate_isni_id(isni_id):
+    def validate_isni_id(self, isni_id):
         """Validate ISNI identifier in case of typos"""
         isni_id = isni_id.replace(' ', '')
         if len(isni_id) == 16:
@@ -260,7 +263,7 @@ class Converter():
         :param dirmax: dirmax default is 100, so it makes 100 request xml files per folder before creating a new one.
         :param dirindex: index number of directory
         """ 
-        xml = xml.replace("<?xml version=\"1.0\" ?>", "")       
+        xml = xml.replace("<?xml version=\"1.0\" ?>", "")
         if concat:
             xmlfile = open(file_path, 'ab+')
             xmlfile.write(bytes(xml, 'UTF-8'))

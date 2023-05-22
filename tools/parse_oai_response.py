@@ -11,8 +11,7 @@ import io
 NAMESPACES = {'oai': 'http://www.openarchives.org/OAI/2.0/'}
 
 def startElementNS(self, name, qname, attrs):
-    """Start element NS."""
-
+    """monkey patched pymarc function for OAI-PMH response"""
     element = name[1]
     self._text = []
 
@@ -30,8 +29,7 @@ def startElementNS(self, name, qname, attrs):
         self._subfield_code = attrs[(None, "label")]
 
 def endElementNS(self, name, qname):
-    """End element NS."""
-
+    """monkey patched pymarc function for OAI-PMH response"""
     element = name[1]
     if self.normalize_form is not None:
         text = unicodedata.normalize(self.normalize_form, u"".join(self._text))

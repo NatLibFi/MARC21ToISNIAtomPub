@@ -352,7 +352,6 @@ class MARC21Converter:
                                 identity['otherIdentifierOfIdentity'].append({'identifier': identifier, 'type': identifier_type})
                             if field_instruction == 'isNot':
                                 identity['isNot'].append({'identifier': identifier, 'type': identifier_type})
-
                 for field in record.get_fields('046'):
                     # NOTE: it is assumed that only one MARC21 field for dates is used
                     dates = self.get_dates(field, identity['identityType'])
@@ -1005,6 +1004,7 @@ class MARC21Converter:
         :param isni_response: a dict containing assigned ISNIs and possible matches
         """
         records = []
+        print(isni_response)
         for record_id in isni_response:
             record = self.records[record_id]
             isni_changed = False
@@ -1022,36 +1022,41 @@ class MARC21Converter:
                 for error in result['errors']:
                     record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['q', error]))
             elif 'possible matches' in result:
-                update_fields = True
-                status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
-                for id in result['possible matches']:
-                    possible_matches.append(id)
-                for field in record.get_fields("924"):
-                    if field['a'] in result['possible matches']:
-                        field.add_subfield('d', date_today)
-                        local_identifier = record_id
-                        if identifier:
-                            local_identifier = '(' + identifier + ')'
-                        text = "Asteri-id " + local_identifier + " " + record_id + " lisättävä ISNIin tai tarkistettava että merge-merkintä oikein"
-                        status_field.add_subfield('q', text)
-                        possible_matches.remove(field['a'])
-                for id in possible_matches:
-                    subfields = ['a', id]
-                    if len(id) == 9:
-                        subfields.extend(['2', 'isni-ppn'])
-                    else:
-                        subfields.extend(['2', 'isni'])
-                    if record_id in result['possible matches'][id]['source ids']:
-                        if len(result['possible matches']) == 1:
-                            status_field.add_subfield('q', 'sparse record')
-                            continue
+                # if record is rich, it is entered to ISNI production with PPN or ISNI, so no actions needed
+                if 'ppn' in result or 'isni' in result:
+                    pass
+                # if record is sparse, it is not entered to ISNI production and possible matches are entered to local record instead
+                else:
+                    update_fields = True
+                    status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
+                    for id in result['possible matches']:
+                        possible_matches.append(id)
+                    for field in record.get_fields("924"):
+                        if field['a'] in result['possible matches']:
+                            field.add_subfield('d', date_today)
+                            local_identifier = record_id
+                            if identifier:
+                                local_identifier = '(' + identifier + ')'
+                            text = "Asteri-id " + local_identifier + " " + record_id + " lisättävä ISNIin tai tarkistettava että merge-merkintä oikein"
+                            status_field.add_subfield('q', text)
+                            possible_matches.remove(field['a'])
+                    for id in possible_matches:
+                        subfields = ['a', id]
+                        if len(id) == 9:
+                            subfields.extend(['2', 'isni-ppn'])
                         else:
-                            subfields.extend(['q', '=tämä tietue'])
-                    elif result['possible matches'][id]['source ids']:
-                        subfields.extend(['q', '=Asterin tietue(et): ' + ', '.join(result['possible matches'][id]['source ids'])])
-                    subfields.extend(['d', date_today])
-                    field = Field(tag = '924', indicators = ['7',' '], subfields=subfields)
-                    record.add_ordered_field(field)
+                            subfields.extend(['2', 'isni'])
+                        if record_id in result['possible matches'][id]['source ids']:
+                            if len(result['possible matches']) == 1:
+                                status_field.add_subfield('q', 'sparse record')
+                                continue
+                            else:
+                                subfields.extend(['q', '=tämä tietue'])
+                        elif result['possible matches'][id]['source ids']:
+                            subfields.extend(['q', '=Asterin tietue(et): ' + ', '.join(result['possible matches'][id]['source ids'])])
+                        subfields.extend(['d', date_today])
+                        field = Field(tag = '924', indicators = ['7',' '], subfields=subfields)
+                        record.add_ordered_field(field)
             elif 'reason' in result:
                 update_fields = True
                 status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])

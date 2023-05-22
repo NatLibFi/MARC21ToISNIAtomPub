@@ -34,7 +34,7 @@ def parse_response_data(root):
         parsed_data['sources'] = source_data
     for unassigned in root.findall('noISNI'):
         for ppn in unassigned.findall('PPN'):
-            parsed_data['possible matches'] = {ppn.text: {'source ids': []}}
+            parsed_data['ppn'] = ppn.text
         possible_matches = get_possible_matches(unassigned)
         if possible_matches:
             if 'possible matches' in parsed_data:

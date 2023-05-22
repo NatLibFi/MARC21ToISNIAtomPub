@@ -10,9 +10,7 @@ NAMESPACES = {'zs': 'http://docs.oasis-open.org/ns/search-ws/sruResponse',
               'srw': 'http://www.loc.gov/zing/srw/'}
 
 def startElementNS(self, name, qname, attrs):
-    """Start element NS."""
-    if self._strict and name[0] != MARC_XML_NS:
-        return
+    """monkey patched pymarc function for OAI-PMH response"""
 
     element = name[1]
     self._text = []
@@ -31,9 +29,7 @@ def startElementNS(self, name, qname, attrs):
         self._subfield_code = attrs[(None, "code")]
 
 def endElementNS(self, name, qname):
-    """End element NS."""
-    if self._strict and name[0] != MARC_XML_NS:
-        return
+    """monkey patched pymarc function for OAI-PMH response"""
 
     element = name[1]
     if self.normalize_form is not None:

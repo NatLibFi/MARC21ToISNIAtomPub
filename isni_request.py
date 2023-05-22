@@ -39,7 +39,7 @@ resource = [{'title',
              'title',
              'publisher',
              'date',
-             'identifiers': {'ISRC': [], 'ISBN: [], 'ISSN: []}
+             'identifiers': {'ISRC': [], 'ISWC': [], 'ISBN: [], 'ISSN: []}
 
 }]
 """
@@ -99,13 +99,17 @@ def create_resources(root, resource_data):
                     for identifier in r['identifiers']['ISRC']:
                         isrc = ET.SubElement(titleOfWork, 'isrc')
                         isrc.text = identifier
+                if r['identifiers'].get('ISWC'):
+                    for identifier in r['identifiers']['ISWC']:
+                        iswc = ET.SubElement(titleOfWork, 'iswc')
+                        iswc.text = identifier
             if r.get('publisher'):
                 imprint = ET.SubElement(titleOfWork, 'imprint')
                 create_subelement(imprint, r, 'publisher')
                 create_subelement(imprint, r, 'date')
             if r.get('identifiers'):
                 for identifier_type in r['identifiers']:
-                    if not identifier_type == 'ISRC':
+                    if not identifier_type in ['ISRC', 'ISWC']:
                         for value in r['identifiers'][identifier_type]:
                             identifier = ET.SubElement(titleOfWork, 'identifier')
                             identifierValue = ET.SubElement(identifier, 'identifierValue')
@@ -123,8 +127,9 @@ def create_xml(record_data, instruction=None, isni_identifiers=[]):
     request = ET.Element("Request")
     try:
         identityInformation = ET.SubElement(request, 'identityInformation')
-        requestorIdentifierOfIdentity = ET.SubElement(identityInformation, 'requestorIdentifierOfIdentity')
-        create_subelement(requestorIdentifierOfIdentity, record_data, 'identifier')
+        if record_data.get('identifier'):
+            requestorIdentifierOfIdentity = ET.SubElement(identityInformation, 'requestorIdentifierOfIdentity')
+            create_subelement(requestorIdentifierOfIdentity, record_data, 'identifier')
         isni_id = None
         local_isni = None
         if instruction == "merge" and isni_identifiers:
@@ -151,7 +156,7 @@ def create_xml(record_data, instruction=None, isni_identifiers=[]):
             personOrFiction = ET.SubElement(identity, 'personOrFiction')
             personalName = ET.SubElement(personOrFiction, 'personalName')
             create_person_name_subelements(personalName, identity_data)
-            identity_elements = ['gender', 'birthDate', 'deathDate', 'dateType']
+            identity_elements = ['birthDate', 'deathDate', 'dateType']
             for elem in identity_elements:
                 create_subelement(personOrFiction, record_data, elem)
             #TODO: nationality, contributedTo and instrumentAndVoice possible here
@@ -199,13 +204,15 @@ def create_xml(record_data, instruction=None, isni_identifiers=[]):
             for record_uri in record_data['URI']:
                 externalInformation = ET.SubElement(identityInformation, 'externalInformation')
                 uri = ET.SubElement(externalInformation, 'URI')
-                uri.text = record_uri     
-        if (instruction == 'isNot' and isni_identifiers) or 'isNot' in record_data:
+                uri.text = record_uri
+        if 'isNot' in record_data:
             if record_data['isNot']:
+                instruction = 'isNot'
                 if not isni_identifiers:
                     isni_identifiers = []
                 for isni_id in record_data['isNot']:
                     isni_identifiers.append(isni_id)
+        if instruction == 'isNot' and isni_identifiers:
             for isni_id in isni_identifiers:
                 isNot = ET.SubElement(request, 'isNot')
                 isNot.set("identityType", record_data['identityType'])
