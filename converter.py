@@ -18,6 +18,7 @@ from tools import parse_atompub_response
 from tools import parse_sru_response
 from tools import xlsx_raport_writer
 from tools import api_query
+from tools import api_request
 
 class Converter():
     """
@@ -61,8 +62,10 @@ class Converter():
             help="File path of CSV file raport for unsuccesful ISNI requests")
         parser.add_argument("-O", "--output_marc_fields",
             help="File path for Aleph sequential MARC21 fields code 024 where received ISNI identifiers are written along recent identifiers")
+        parser.add_argument("--output_to_api", action="store_true",
+            help="ISNI identifiers from ISNI responses are output to API, address is definef in config.ini under section AUT NAMES API")
         parser.add_argument("-m", "--mode",
-            help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'send', 'test'], required=True)
+            help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'prod', 'test'], required=True)
         parser.add_argument("-F", "--config_file_path",
             help="File path for configuration file structured for Python ConfigParser")
         args = parser.parse_args()
@@ -79,8 +82,8 @@ class Converter():
         :param args: command line arguments parsed by ConfigParser
         """
         logging.getLogger().setLevel(logging.INFO)
-        if args.mode in ['send', 'test']:
-            if args.mode == 'send':
+        if args.mode in ['prod', 'test']:
+            if args.mode == 'prod':
                 section = self.config['ISNI SRU API']
             if args.mode == 'test':
                 section = self.config['ISNI SRU TEST API']
@@ -156,7 +159,7 @@ class Converter():
         idx = 0
         logging.info("Starting to convert records...")
 
-        isnis = {}
+        isni_records = []
         if args.output_raport_list:
             raport_writer = xlsx_raport_writer.RaportWriter(args.output_raport_list)
         for record_id in records:
@@ -189,7 +192,7 @@ class Converter():
                 if not self.valid_xml(record_id, xml, xmlschema):
                     continue
 
-            if args.mode in ["send", "test"]:
+            if args.mode in ["prod", "test"]:
                 logging.info("Sending record %s"%record_id)
                 response = {'errors': []}
                 if not records[record_id]['errors']:
@@ -218,7 +221,11 @@ class Converter():
                             result = self.sru_api_query.search_with_id('isn',response['isni'])
                             response['deprecated isnis'] = parse_sru_response.get_isni_identifiers(result)['deprecated isnis']
                 response['errors'].extend(records[record_id]['errors'])
-                isnis[record_id] = response
+                isni_record = self.converter.add_isni_to_record(record_id, response, args.identifier)
+                if isni_record:
+                    isni_records.append(isni_record)
+                    if args.output_to_api:
+                       api_request.send_isni_record(isni_record, self.config)
                 if args.output_raport_list:
                     raport_writer.handle_response(response, record_id, records[record_id])
             elif args.mode == "write":
@@ -232,8 +239,7 @@ class Converter():
         if args.concat:
             with open(args.output_directory+"/concat.xml", 'ab+') as concat_file:
                 concat_file.write(bytes("</root>", "UTF-8"))
-        if isnis:
-            isni_records = self.converter.create_isni_fields(isnis, args.identifier)
+        if isni_records:
             if args.output_marc_fields:
                 self.converter.write_isni_fields(args.output_marc_fields, isni_records)
 
@@ -276,11 +282,11 @@ class Converter():
     def send_xml(self, xml, mode, origin=""):
         """
         :param xml: string converted XML elementtree in ISNI AtomPub format
-        :param mode: 'send' or 'test' to choose between ISNI production and accept database
+        :param mode: 'prod' or 'test' to choose between ISNI production and accept database
         :param origin:
         """
         headers = {'Content-Type': 'application/atom+xml; charset=utf-8'}
-        if mode == 'send':
+        if mode == 'prod':
             section = self.config['ISNI ATOMPUB API']
         elif mode == 'test':
             section = self.config['ISNI ATOMPUB TEST API']

@@ -7,7 +7,8 @@ from tools import api_query
 from tools import parse_sru_response
 from tools import parse_oai_response
 from pymarc import MARCReader, Field
-from tools import aleph_seq_reader  
+from tools import aleph_seq_reader
+from tools import api_request
 import copy
 import io
 import json
@@ -41,9 +42,7 @@ class MARC21Converter:
                     linked_identifier = re.sub("[\(].*?[\)]", "", field['0'])
                     if linked_identifier not in identifiers:
                         identifiers.add(linked_identifier)
-                        parameters = {'doc_num': linked_identifier}
-                        response = self.oai_x_query.api_search(parameters=parameters)
-                        marc_record = parse_oai_response.get_records(response)[0]
+                        marc_record = api_request.get_request(linked_identifier, self.config)
                         if marc_record['001']:
                             marc_records.append(marc_record)
                             self.get_linked_records(marc_record, marc_records, identifiers)
@@ -111,17 +110,13 @@ class MARC21Converter:
             else:
                 logging.error("Command line argument modified_after required if authority file not given")
                 sys.exit(2)
-            section = self.config['AUT X API']                      
-            self.oai_x_query = api_query.APIQuery(config_section=section)                                           
             requested_ids.update(identifiers)
             if not requested_ids:
                 logging.error("No records found for conversion")
                 sys.exit(2)
             for identifier in identifiers:
-                parameters = {'doc_num': identifier}
-                response = self.oai_x_query.api_search(parameters=parameters)
+                record = api_request.get_request(identifier, self.config)
                 marc_records = []
-                record = parse_oai_response.get_records(response)[0]
                 if not record in marc_records:
                     marc_records.append(record)
                 if record['001']:
@@ -573,7 +568,7 @@ class MARC21Converter:
     def get_related_identifiers(self, record_id, identities, related_ids):
         """
         Get identifiers of organisations predecessors and successors for ISNI isNot element
-        :param record_id: organisatio record's identifier
+        :param record_id: organisation record's identifier
         :param identities: a dict of identity data gathered by get_authority_data function
         """
         if record_id in identities:
@@ -996,138 +991,135 @@ class MARC21Converter:
 
         return resources[:self.max_number_of_titles]
 
-    def create_isni_fields(self, isni_response, identifier=""):
+    def add_isni_to_record(self, record_id, response, identifier=""):
         """
         A function to write ISNI identifiers into Aleph Sequential format.
         Write ISNI identifier even if it exists in record in order to
         update record to get cataloguer name to record.
-        :param isni_response: a dict containing assigned ISNIs and possible matches
+        :param record_id: identifier of MARC21 record
+        :param response: a dict parsed from ISNI response containing assigned ISNIs and possible matches
+        :param identifier: a dict containing assigned ISNIs and possible matches
         """
-        records = []
-        print(isni_response)
-        for record_id in isni_response:
-            record = self.records[record_id]
-            isni_changed = False
-            isni_found = False
-            update_fields = False
-            removable_fields = []
-            result = isni_response[record_id]
-            date_today = str(datetime.today().date())
-            possible_matches = []
-            isni = None
-            status_field = None
-            if result.get('errors'):
-                update_fields = True
-                record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI']))
-                for error in result['errors']:
-                    record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['q', error]))
-            elif 'possible matches' in result:
-                # if record is rich, it is entered to ISNI production with PPN or ISNI, so no actions needed
-                if 'ppn' in result or 'isni' in result:
-                    pass
-                # if record is sparse, it is not entered to ISNI production and possible matches are entered to local record instead
-                else:
-                    update_fields = True
-                    status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
-                    for id in result['possible matches']:
-                        possible_matches.append(id)
-                    for field in record.get_fields("924"):
-                        if field['a'] in result['possible matches']:
-                            field.add_subfield('d', date_today)
-                            local_identifier = record_id
-                            if identifier:
-                                local_identifier = '(' + identifier + ')'
-                            text = "Asteri-id " + local_identifier + " " + record_id + " lisättävä ISNIin tai tarkistettava että merge-merkintä oikein"
-                            status_field.add_subfield('q', text)
-                            possible_matches.remove(field['a'])
-                    for id in possible_matches:
-                        subfields = ['a', id]
-                        if len(id) == 9:
-                            subfields.extend(['2', 'isni-ppn'])
-                        else:
-                            subfields.extend(['2', 'isni'])
-                        if record_id in result['possible matches'][id]['source ids']:
-                            if len(result['possible matches']) == 1:
-                                status_field.add_subfield('q', 'sparse record')
-                                continue
-                            else:
-                                subfields.extend(['q', '=tämä tietue'])
-                        elif result['possible matches'][id]['source ids']:
-                            subfields.extend(['q', '=Asterin tietue(et): ' + ', '.join(result['possible matches'][id]['source ids'])])
-                        subfields.extend(['d', date_today])
-                        field = Field(tag = '924', indicators = ['7',' '], subfields=subfields)
-                        record.add_ordered_field(field)
-            elif 'reason' in result:
+        record = self.records[record_id]
+        isni_changed = False
+        isni_found = False
+        update_fields = False
+        removable_fields = []
+        date_today = str(datetime.today().date())
+        possible_matches = []
+        isni = None
+        status_field = None
+        if response.get('errors'):
+            update_fields = True
+            record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI']))
+            for error in response['errors']:
+                record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['q', error]))
+        elif 'possible matches' in response:
+            # if record is rich, it is entered to ISNI production with PPN or ISNI, so no actions needed
+            if 'ppn' in response or 'isni' in response:
+                pass
+            # if record is sparse, it is not entered to ISNI production and possible matches are entered to local record instead
+            else:
                 update_fields = True
                 status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
-                if result['reason'] == 'no match initial database':
-                    status_field.add_subfield('q', 'sparse record')
-                else:
-                    status_field.add_subfield('q', result['reason'])
-            elif 'isni' in result:
-                isni = result['isni']
+                for id in response['possible matches']:
+                    possible_matches.append(id)
                 for field in record.get_fields("924"):
-                    update_fields = True
-                    removable = True
-                    if field['a']:
-                        if self.validator.valid_ISNI_checksum(field['a']) and isni != field['a']:
-                            removable = False
-                            while field['d']:
-                                field.delete_subfield('d')
-                            while field['q']:
-                                field.delete_subfield('q')
-                            field.add_subfield('q', 'isNot')
-                    if removable:
-                        removable_fields.append(field)
-
-                deprecated_isnis = {}
-                if 'deprecated isnis' in result:
-                    for deprecated_isni in result['deprecated isnis']:
-                        deprecated_isnis[deprecated_isni] = False
-                for field in record.get_fields("024"):
-                    if field['2'] and field['a']:
-                        if field['2'] == "isni":
-                            if field['a'] != isni:
-                                if field['a'].replace(' ', '') == isni:
-                                    field['a'] = field['a'].replace(' ', '')
-                                    isni_found = True
-                                else:
-                                    removable_fields.append(field)
-                                    isni_changed = True
-                                update_fields = True
-                            else:
-                                isni_found = True
-                    if field['2'] and field['z']:
-                        if field['2'] == "isni":
-                            if field['z'] not in deprecated_isnis or deprecated_isnis[field['z']]:
-                                removable_fields.append(field)
-                                update_fields = True
-                            deprecated_isnis[field['z']] = True
-                if isni_changed or not isni_found:
-                    subfields = ['a', isni]
-                    subfields.extend(['2', 'isni'])
-                    field = Field(tag = '024', indicators = ['7',' '], subfields=subfields)
-                    record.add_ordered_field(field)
-                    update_fields = True
-                for deprecated_isni in deprecated_isnis:
-                    if not deprecated_isnis[deprecated_isni]:
-                        subfields = ['z', deprecated_isni]
+                    if field['a'] in response['possible matches']:
+                        field.add_subfield('d', date_today)
+                        local_identifier = record_id
+                        if identifier:
+                            local_identifier = '(' + identifier + ')'
+                        text = "Asteri-id " + local_identifier + " " + record_id + " lisättävä ISNIin tai tarkistettava että merge-merkintä oikein"
+                        status_field.add_subfield('q', text)
+                        possible_matches.remove(field['a'])
+                for id in possible_matches:
+                    subfields = ['a', id]
+                    if len(id) == 9:
+                        subfields.extend(['2', 'isni-ppn'])
+                    else:
                         subfields.extend(['2', 'isni'])
-                        record.add_ordered_field(Field(tag = '024', indicators = ['7',' '], subfields=subfields))
-                        update_fields = True
+                    if record_id in response['possible matches'][id]['source ids']:
+                        if len(response['possible matches']) == 1:
+                            status_field.add_subfield('q', 'sparse record')
+                            continue
+                        else:
+                            subfields.extend(['q', '=tämä tietue'])
+                    elif response['possible matches'][id]['source ids']:
+                        subfields.extend(['q', '=Asterin tietue(et): ' + ', '.join(response['possible matches'][id]['source ids'])])
+                    subfields.extend(['d', date_today])
+                    field = Field(tag = '924', indicators = ['7',' '], subfields=subfields)
+                    record.add_ordered_field(field)
+        elif 'reason' in response:
+            update_fields = True
+            status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
+            if response['reason'] == 'no match initial database':
+                status_field.add_subfield('q', 'sparse record')
+            else:
+                status_field.add_subfield('q', result['reason'])
+        elif 'isni' in response:
+            isni = response['isni']
+            for field in record.get_fields("924"):
+                update_fields = True
+                removable = True
+                if field['a']:
+                    if self.validator.valid_ISNI_checksum(field['a']) and isni != field['a']:
+                        removable = False
+                        while field['d']:
+                            field.delete_subfield('d')
+                        while field['q']:
+                            field.delete_subfield('q')
+                        field.add_subfield('q', 'isNot')
+                if removable:
+                    removable_fields.append(field)
 
-            if update_fields:
-                if status_field:
-                    fields = record.get_fields('924')
-                    record.remove_fields('924')
-                    record.add_ordered_field(status_field)
-                    for field in fields:
-                        record.add_ordered_field(field)
-                for field in removable_fields:
-                    record.remove_field(field)
-                records.append(record)
-    
-        return records
+            deprecated_isnis = {}
+            if 'deprecated isnis' in response:
+                for deprecated_isni in response['deprecated isnis']:
+                    deprecated_isnis[deprecated_isni] = False
+            for field in record.get_fields("024"):
+                if field['2'] and field['a']:
+                    if field['2'] == "isni":
+                        if field['a'] != isni:
+                            if field['a'].replace(' ', '') == isni:
+                                field['a'] = field['a'].replace(' ', '')
+                                isni_found = True
+                            else:
+                                removable_fields.append(field)
+                                isni_changed = True
+                            update_fields = True
+                        else:
+                            isni_found = True
+                if field['2'] and field['z']:
+                    if field['2'] == "isni":
+                        if field['z'] not in deprecated_isnis or deprecated_isnis[field['z']]:
+                            removable_fields.append(field)
+                            update_fields = True
+                        deprecated_isnis[field['z']] = True
+            if isni_changed or not isni_found:
+                subfields = ['a', isni]
+                subfields.extend(['2', 'isni'])
+                field = Field(tag = '024', indicators = ['7',' '], subfields=subfields)
+                record.add_ordered_field(field)
+                update_fields = True
+            for deprecated_isni in deprecated_isnis:
+                if not deprecated_isnis[deprecated_isni]:
+                    subfields = ['z', deprecated_isni]
+                    subfields.extend(['2', 'isni'])
+                    record.add_ordered_field(Field(tag = '024', indicators = ['7',' '], subfields=subfields))
+                    update_fields = True
+
+        if update_fields:
+            if status_field:
+                fields = record.get_fields('924')
+                record.remove_fields('924')
+                record.add_ordered_field(status_field)
+                for field in fields:
+                    record.add_ordered_field(field)
+            for field in removable_fields:
+                record.remove_field(field)
+            self.trim_undefined(record)
+            return record
 
     def write_isni_fields(self, file_path, records):
         with io.open(file_path, 'w', encoding = 'utf-8', newline='\n') as fh:
@@ -1160,3 +1152,14 @@ class MARC21Converter:
                     subfield = subfield.replace('FI-ASTERI-N', 'FIN11')
                 seq_field += code + subfield
         return seq_field
+
+    def trim_undefined(self, record):
+        """
+        Removes "undefined" string in case MARC21 is requested from REST API
+        :param record: MARC21 record data
+        """
+        for field in record.get_fields("CAT"):
+            for idx, sf in enumerate(field.subfields):
+                if idx % 2 == 0 and sf == "b":
+                    if field.subfields[idx + 1] == "undefined":
+                        field.subfields[idx + 1] = ""
