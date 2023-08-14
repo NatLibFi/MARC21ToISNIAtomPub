@@ -86,7 +86,7 @@ class ResourceList:
                     logging.error("Bibliographical record %s has not a title"%record_id)
                     return
                 
-                if field['b']:  
+                if 'b' in field and field['b']:
                     title += " " + field['b']
                     title = self.trim_data(title)
         if title:
@@ -103,22 +103,26 @@ class ResourceList:
         title_of_work['publisher'] = None
         title_of_work['date'] = None
         for field in record.get_fields('260'):    
-            if field['b']:
+            if 'b' in field and field['b']:
                 if not "tuntematon" in field['b']:
                     publisher = field['b']
                     title_of_work['publisher']  = self.trim_data(publisher)
-            if title_of_work['publisher'] and field['c']:
+            if title_of_work['publisher'] and 'c' in field:
                 #Note: ISNI allows more than one date, but for sorting purposes the first valid year is chosen
-                #publisher's name is mandatory, date of publication is no
-                title_of_work['date'] = self.trim_year(field['c'])
+                #publisher's name is mandatory, date of publication is not
+                trimmed_date = self.trim_year(field['c'])
+                if trimmed_date:
+                    title_of_work['date'] = trimmed_date
         if not title_of_work['publisher']:
             for field in record.get_fields('264'):                
-                if field['b']:
+                if 'b' in field and field['b']:
                     if not "tuntematon" in field['b']:
                         publisher = field['b'] 
                         title_of_work['publisher'] = self.trim_data(publisher)
-                        if title_of_work['publisher'] and field['c']:
-                            title_of_work['date'] = self.trim_year(field['c'])
+                        if title_of_work['publisher'] and 'c' in field:
+                            trimmed_date = self.trim_year(field['c'])
+                            if trimmed_date:
+                                title_of_work['date'] = trimmed_date
         
         title_of_work['identifiers'] = self.get_identifiers(record)
 
@@ -126,14 +130,14 @@ class ResourceList:
         title_of_work['language'] = None
         for field in record.get_fields('041'):
             if uniform_title:
-                if field['h']:
+                if 'h' in field:
                     if self.validator.valid_language_code(field['h']):
                         title_of_work['language'] = field['h']
                     else:
                         logging.error("Invalid language code in record: %s"%record_id)
             else:
                 # Note: multiple subfields with language codes possible
-                if field['a']:
+                if 'a' in field:
                     if self.validator.valid_language_code(field['a']):
                         title_of_work['language'] = field['a']
                     else:
@@ -156,7 +160,7 @@ class ResourceList:
                 if author_id and author_id not in authors:
                     #only one creation role possible in ISNI, the first subfield e is chosen
                     if not(search_id and search_id != author_id):
-                        if field['e']:
+                        if 'e' in field and field['e']:
                             f = field['e']
                             if f.endswith(",") or f.endswith("."):
                                 f = f[:-1]
@@ -197,9 +201,8 @@ class ResourceList:
                         if field.indicators[0] == '2':
                             identifier_type = 'ISMN'
                         if field.indicators[0] == '7':
-                            if field['2']:
-                                if field['2'] == 'doi':
-                                    identifier_type = 'DOI'
+                            if '2' in field and field['2'] == 'doi':
+                                identifier_type = 'DOI'
                     if identifier_type:
                         if identifier_type in ['ISBN', 'ISSN', 'ISRC']:
                             sf = sf.replace('-', '')

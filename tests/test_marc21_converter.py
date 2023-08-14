@@ -4,7 +4,7 @@ import sys
 from unittest import mock
 from converter import Converter
 from resource_list import ResourceList
-from pymarc import Field
+from pymarc import Field, Subfield
 
 class MockArgs(object):
     pass
@@ -99,24 +99,27 @@ class MARC21ConverterTest(unittest.TestCase):
     def test_get_dates(self):
         identity_type = 'personOrFiction'
 
-        field = Field(tag = '046', subfields=['f', '-1900', 'g', '2000'])
+        field = Field(tag = '046', subfields=[Subfield(code='f', value='-1900'),
+                                              Subfield(code='g', value='2000')])
         dates = self.mc.get_dates(field, identity_type)
         self.assertEqual(dates['birthDate'], '-1900')
         self.assertEqual(dates['deathDate'], '2000')
         self.assertEqual(dates['dateType'], None)
 
-        field = Field(tag = '046', subfields=['s', '900', 't', '2000'])
+        field = Field(tag = '046', subfields=[Subfield(code='s', value='900'),
+                                              Subfield(code='t', value='2000')])
         dates = self.mc.get_dates(field, identity_type)
         self.assertEqual(dates['birthDate'], None)
         self.assertEqual(dates['deathDate'], '2000')
         self.assertEqual(dates['dateType'], 'flourished')
 
-        field = Field(tag = '046', subfields=['f', '1900~'])
+        field = Field(tag = '046', subfields=[Subfield(code='f', value='1900~')])
         dates = self.mc.get_dates(field, identity_type)
         self.assertEqual(dates['birthDate'], '1900')
         self.assertEqual(dates['dateType'], 'circa')
 
-        field = Field(tag = '046', subfields=['f', '[1901,1902]', 'g', '[1903,1905'])
+        field = Field(tag = '046', subfields=[Subfield(code='f', value='[1901,1902]'),
+                                              Subfield(code='g', value='[1903,1905')])
         dates = self.mc.get_dates(field, identity_type)
         self.assertEqual(dates['birthDate'], '1901')
         self.assertEqual(dates['deathDate'], None)
@@ -124,17 +127,20 @@ class MARC21ConverterTest(unittest.TestCase):
 
         identity_type = 'organisation'
 
-        field = Field(tag = '046', subfields=['f', '-1900', 'g', '2000'])
+        field = Field(tag = '046', subfields=[Subfield(code='f', value='-1900'),
+                                              Subfield(code='g', value='2000')])
         dates = self.mc.get_dates(field, identity_type)
         self.assertEqual(dates['usageDateFrom'], None)
         self.assertEqual(dates['usageDateTo'], None)
 
-        field = Field(tag = '046', subfields=['s', '-1900', 't', '2000'])
+        field = Field(tag = '046', subfields=[Subfield(code='s', value='-1900'),
+                                              Subfield(code='t', value='2000')])
         dates = self.mc.get_dates(field, identity_type)
         self.assertEqual(dates['usageDateFrom'], '-1900')
         self.assertEqual(dates['usageDateTo'], '2000')
 
-        field = Field(tag = '046', subfields=['q', '-1900', 'r', '2000'])
+        field = Field(tag = '046', subfields=[Subfield(code='q', value='-1900'),
+                                              Subfield(code='r', value='2000')])
         dates = self.mc.get_dates(field, identity_type)
         self.assertEqual(dates['usageDateFrom'], '-1900')
         self.assertEqual(dates['usageDateTo'], '2000')

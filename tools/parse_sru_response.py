@@ -50,8 +50,7 @@ def endElementNS(self, name, qname):
         self._record.add_field(self._field)
         self._field = None
     elif element == "subfield":
-        self._field.subfields.append(self._subfield_code)
-        self._field.subfields.append(text)
+        self._field.add_subfield(self._subfield_code, text)
         self._subfield_code = None
 
     self._text = []

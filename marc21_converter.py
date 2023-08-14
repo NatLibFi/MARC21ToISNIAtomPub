@@ -6,8 +6,8 @@ from validators import Validator
 from tools import api_query
 from tools import parse_sru_response
 from tools import parse_oai_response
-from pymarc import MARCReader, Field
-from tools import aleph_seq_reader  
+from pymarc import MARCReader, Field, Subfield
+from tools import aleph_seq_reader
 import copy
 import io
 import json
@@ -37,7 +37,7 @@ class MARC21Converter:
         for tag in tags:
             for field in record.get_fields(tag):
                 linked_identifier = None
-                if field['0']:
+                if '0' in field and field['0']:
                     linked_identifier = re.sub("[\(].*?[\)]", "", field['0'])
                     if linked_identifier not in identifiers:
                         identifiers.add(linked_identifier)
@@ -124,7 +124,7 @@ class MARC21Converter:
                 record = parse_oai_response.get_records(response)[0]
                 if not record in marc_records:
                     marc_records.append(record)
-                if record['001']:
+                if '001' in record:
                     linked_id = record['001'].data
                     linked_identifiers = {record['001'].data}
                     self.get_linked_records(record, marc_records, linked_identifiers)
@@ -166,12 +166,11 @@ class MARC21Converter:
                     record = reader.pop()
                 else:
                     record = None
-            if record:
-                if record['001']:
-                    record_id = record['001'].data
-                    if args.authority_files:
-                        requested_ids.add(record_id)
-            if not record_id or not any(record[f] for f in convertible_fields):
+            if record and '001' in record:
+                record_id = record['001'].data
+                if args.authority_files:
+                    requested_ids.add(record_id)
+            if not record_id or not any(f in record for f in convertible_fields):
                 if record_id:
                     requested_ids.remove(record_id)
                 continue
@@ -185,7 +184,7 @@ class MARC21Converter:
                     if sf in ["TEST", "DELETED"]:
                         removable = True
             for field in record.get_fields('924'):
-                if field['x']:
+                if 'x' in field:
                     requested_ids.remove(record_id)
             if removable:
                 if record_id in requested_ids:
@@ -234,7 +233,7 @@ class MARC21Converter:
             else:
                 identity['identifier'] = record_id
             identity['isRelated'] = self.get_related_names(record)
-            if record['100']:
+            if '100' in record:
                 identity['identityType'] = 'personOrFiction'
                 personal_name = self.get_personal_name(record_id, record['100'])      
 
@@ -272,7 +271,7 @@ class MARC21Converter:
                         # check for duplicate names:
                         if not any(pnv['surname'] == fn['surname'] and pnv['forename'] == fn['forename'] for pnv in identity['personalNameVariant']):
                             identity['personalNameVariant'].append({'nameUse': 'public', 'surname': fn['surname'], 'forename': fn['forename']})
-            elif record['110']:                
+            elif '110' in record:
                 identity['identityType'] = 'organisation'
                 organisation_name = self.get_organisation_name(record['110'], record)
                 if not organisation_name:
@@ -292,7 +291,7 @@ class MARC21Converter:
                 for field in record.get_fields('024'):
                     identifier_type = None
                     identifier = None
-                    if field['a'] and field['2']:
+                    if 'a' in field and '2' in field:
                         identifier = field['a']
                         if field['2'] in ["viaf", "orcid", "wikidata"]:
                             identifier_type = field['2'].upper()     
@@ -324,7 +323,7 @@ class MARC21Converter:
                             elif sf == 'merge':
                                 general_instruction = 'merge'
                 for field in record.get_fields('924'):
-                    if not field['x']:
+                    if not 'x' in field:
                         identifier = None
                         identifier_type = None
                         field_instruction = None
@@ -394,7 +393,7 @@ class MARC21Converter:
 
                 uris = []
                 for field in record.get_fields("670"):
-                    if field['a']:
+                    if 'a' in field:
                         if not field['a'].lower().startswith("väittelijän"):
                             for sf in field.get_subfields("u"):
                                 uris.append(sf) 
@@ -663,11 +662,11 @@ class MARC21Converter:
                     if field.tag == "510":
                         related_name['identityType'] = "organisation"
                         related_name['organisationName'] = self.get_organisation_name(field, record)
-                    if field['0']:
+                    if '0' in field and field['0']:
                         related_name['identifier'] = re.sub("[\(].*?[\)]", "", field['0'])
                     for sf in field.get_subfields("i"):
                         relationType = sf.replace(":", "")
-                    if record['110']:
+                    if '110' in record:
                         for sf in field.get_subfields("w"):
                             if sf == "a":
                                 relationType = "supersedes"
@@ -677,7 +676,7 @@ class MARC21Converter:
                                 relationType = "isUnitOf"
                         if not relationType and field.tag == "500":
                             relationType = "undefined or unknown"
-                    if record['100'] and not relationType:
+                    if '100' in record and not relationType:
                         relationType = "undefined or unknown"
                     if relationType:
                         related_name['relationType'] = relationType
@@ -1004,7 +1003,6 @@ class MARC21Converter:
         :param isni_response: a dict containing assigned ISNIs and possible matches
         """
         records = []
-        print(isni_response)
         for record_id in isni_response:
             record = self.records[record_id]
             isni_changed = False
@@ -1018,9 +1016,9 @@ class MARC21Converter:
             status_field = None
             if result.get('errors'):
                 update_fields = True
-                record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI']))
+                record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=[Subfield(code='x', value='KESKEN-ISNI')]))
                 for error in result['errors']:
-                    record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=['q', error]))
+                    record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=[Subfield(code='q', value=error)]))
             elif 'possible matches' in result:
                 # if record is rich, it is entered to ISNI production with PPN or ISNI, so no actions needed
                 if 'ppn' in result or 'isni' in result:
@@ -1028,11 +1026,11 @@ class MARC21Converter:
                 # if record is sparse, it is not entered to ISNI production and possible matches are entered to local record instead
                 else:
                     update_fields = True
-                    status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
+                    status_field = Field(tag = '924', indicators = [' ',' '], subfields=[Subfield(code='x', value='KESKEN-ISNI')])
                     for id in result['possible matches']:
                         possible_matches.append(id)
                     for field in record.get_fields("924"):
-                        if field['a'] in result['possible matches']:
+                        if 'a' in field and field['a'] in result['possible matches']:
                             field.add_subfield('d', date_today)
                             local_identifier = record_id
                             if identifier:
@@ -1041,25 +1039,25 @@ class MARC21Converter:
                             status_field.add_subfield('q', text)
                             possible_matches.remove(field['a'])
                     for id in possible_matches:
-                        subfields = ['a', id]
+                        subfields = [Subfield(code='a', value=id)]
                         if len(id) == 9:
-                            subfields.extend(['2', 'isni-ppn'])
+                            subfields.append(Subfield(code='2', value='isni-ppn'))
                         else:
-                            subfields.extend(['2', 'isni'])
+                            subfields.append(Subfield(code='2', value='isni'))
                         if record_id in result['possible matches'][id]['source ids']:
                             if len(result['possible matches']) == 1:
                                 status_field.add_subfield('q', 'sparse record')
                                 continue
                             else:
-                                subfields.extend(['q', '=tämä tietue'])
+                                subfields.append(Subfield(code='q', value='=tämä tietue'))
                         elif result['possible matches'][id]['source ids']:
-                            subfields.extend(['q', '=Asterin tietue(et): ' + ', '.join(result['possible matches'][id]['source ids'])])
-                        subfields.extend(['d', date_today])
+                            subfields.append(Subfield(code='q', value='=Asterin tietue(et): ' + ', '.join(result['possible matches'][id]['source ids'])))
+                        subfields.append(Subfield(code='d', value=date_today))
                         field = Field(tag = '924', indicators = ['7',' '], subfields=subfields)
                         record.add_ordered_field(field)
             elif 'reason' in result:
                 update_fields = True
-                status_field = Field(tag = '924', indicators = [' ',' '], subfields=['x', 'KESKEN-ISNI'])
+                status_field = Field(tag = '924', indicators = [' ',' '], subfields=[Subfield(code='x', value='KESKEN-ISNI')])
                 if result['reason'] == 'no match initial database':
                     status_field.add_subfield('q', 'sparse record')
                 else:
@@ -1069,12 +1067,12 @@ class MARC21Converter:
                 for field in record.get_fields("924"):
                     update_fields = True
                     removable = True
-                    if field['a']:
+                    if 'a' in field:
                         if self.validator.valid_ISNI_checksum(field['a']) and isni != field['a']:
                             removable = False
-                            while field['d']:
+                            while 'd' in field:
                                 field.delete_subfield('d')
-                            while field['q']:
+                            while 'q' in field:
                                 field.delete_subfield('q')
                             field.add_subfield('q', 'isNot')
                     if removable:
@@ -1085,7 +1083,7 @@ class MARC21Converter:
                     for deprecated_isni in result['deprecated isnis']:
                         deprecated_isnis[deprecated_isni] = False
                 for field in record.get_fields("024"):
-                    if field['2'] and field['a']:
+                    if '2' in field and 'a' in field:
                         if field['2'] == "isni":
                             if field['a'] != isni:
                                 if field['a'].replace(' ', '') == isni:
@@ -1097,25 +1095,22 @@ class MARC21Converter:
                                 update_fields = True
                             else:
                                 isni_found = True
-                    if field['2'] and field['z']:
+                    if '2' in field and 'z' in field:
                         if field['2'] == "isni":
                             if field['z'] not in deprecated_isnis or deprecated_isnis[field['z']]:
                                 removable_fields.append(field)
                                 update_fields = True
                             deprecated_isnis[field['z']] = True
                 if isni_changed or not isni_found:
-                    subfields = ['a', isni]
-                    subfields.extend(['2', 'isni'])
+                    subfields = [Subfield(code='a', value=isni), Subfield(code='2', value='isni')]
                     field = Field(tag = '024', indicators = ['7',' '], subfields=subfields)
                     record.add_ordered_field(field)
                     update_fields = True
                 for deprecated_isni in deprecated_isnis:
                     if not deprecated_isnis[deprecated_isni]:
-                        subfields = ['z', deprecated_isni]
-                        subfields.extend(['2', 'isni'])
+                        subfields = [Subfield(code='z', value=deprecated_isni), Subfield(code='2', value='isni')]
                         record.add_ordered_field(Field(tag = '024', indicators = ['7',' '], subfields=subfields))
                         update_fields = True
-
             if update_fields:
                 if status_field:
                     fields = record.get_fields('924')
@@ -1152,11 +1147,11 @@ class MARC21Converter:
             seq_field += "   L " + field.data
         else:
             seq_field += field.indicators[0] + field.indicators[1] + " L "
-            for idx in range(0, len(field.subfields), 2):
+            for sf in field.subfields:
                 seq_field += "$$"
-                code = field.subfields[idx]
-                subfield = field.subfields[idx + 1]
+                subfield = sf.value
                 if field.tag in ['100', '110', '111', '400', '410', '411', '500', '510', '511']:
                     subfield = subfield.replace('FI-ASTERI-N', 'FIN11')
-                seq_field += code + subfield
+                seq_field += sf.code + subfield
+
         return seq_field

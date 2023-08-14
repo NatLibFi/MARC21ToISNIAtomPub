@@ -108,13 +108,12 @@ class MARC21OutputTest(unittest.TestCase):
             if id in test_record_ids:
                 for field1 in pairs[id]['input'].get_fields('024'):
                     counter = 0
-                    if field1['2']:
-                        if field1['2'] != 'isni':
-                            for field2 in pairs[id]['output'].get_fields('024'):
-                                if field1.subfields == field2.subfields:
-                                    counter += 1
-                            self.assertEqual(counter, 1)
-                            tested_ids.append(id)
+                    if '2' in field1 and field1['2'] != 'isni':
+                        for field2 in pairs[id]['output'].get_fields('024'):
+                            if field1.subfields == field2.subfields:
+                                counter += 1
+                        self.assertEqual(counter, 1)
+                        tested_ids.append(id)
         self.assertEqual(sorted(test_record_ids), sorted(tested_ids))
 
     def test_already_catalogued_not_in_output_fields(self):
