@@ -183,6 +183,23 @@ class MARC21Converter:
                 for sf in field.get_subfields('a'):
                     if sf in ["TEST", "DELETED"]:
                         removable = True
+            for field in record.get_fields('368'):
+                for sf in field.get_subfields('a'):
+                    if sf in ['festivaali',
+                              'hiippakuntakokous',
+                              'kilpailu (tapahtuma)',
+                              'kirkolliskokous',
+                              'kokous',
+                              'konferenssi',
+                              'konferenssi/seminaari',
+                              'näyttely',
+                              'pappeinkokous',
+                              'piispainkokous',
+                              'seminaari',
+                              'taidetapahtuma',
+                              'tapahtuma',
+                              'urheilutapahtuma']:
+                        removable = True
             for field in record.get_fields('924'):
                 if 'x' in field:
                     requested_ids.remove(record_id)
