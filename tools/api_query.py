@@ -57,7 +57,7 @@ class APIQuery():
         : param password: ISNI password
         """   
         self.baseurl = config_section.get('baseurl')
-        self.database = config_section.get('database')
+        self.database = config_section.get('database', fallback=None)
         try:
             self.constant_parameters = json.loads(config_section.get('parameters'))
         except json.decoder.JSONDecodeError as e:
@@ -100,12 +100,11 @@ class APIQuery():
         isni_query: if true, format query for ISNI SRU API
         """
         url = self.baseurl
-        if self.username:
-            url += '/' + self.username + '/'
-        if self.password:  
-            url += self.password + '/'
-        if self.database:
-            url += self.database + '/'
+        for param in [self.username, self.password, self.database]:
+            if param:
+                if not url.endswith('/'):
+                    url += '/'
+                url += param
         url += "?"
         if query_strings:
             query_string = ""
@@ -144,6 +143,7 @@ class APIQuery():
         parameters = {id_type: identifier}
         query = self.form_isni_query(parameters)
         url = self.form_query_url([query])
+        print(url)
         try:
             r = requests.get(url, timeout=self.timeout)
         except requests.exceptions.ReadTimeout:
@@ -175,6 +175,7 @@ class APIQuery():
 
     def api_search(self, query_strings=None, parameters=None, token_parameters=None):
         url = self.form_query_url(query_strings, parameters, token_parameters)
+        print(url)
         try:
             r = requests.get(url, timeout=self.timeout)
         except requests.exceptions.ReadTimeout:

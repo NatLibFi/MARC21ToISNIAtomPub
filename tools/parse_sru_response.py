@@ -63,30 +63,12 @@ def get_record_data(response):
             record_data.extend(record.findall('srw:recordData', NAMESPACES))
     return record_data
 
-def get_isni_identifiers(response):
-    identifiers = {'isni': None, 'ppn': None, 'deprecated isnis': []}
+def get_isni_identifier(response):
     isni_path = 'responseRecord/ISNIAssigned/isniUnformatted'
-    ppn_path = 'responseRecord/noISNI/PPN'
-    deprecated_path = 'responseRecord/ISNIAssigned/mergedISNI'
-    record_data = get_record_data(response)
-    for data in record_data:
-        for isni in data.findall(isni_path):
-            identifiers['isni'] = isni.text
-        for ppn in data.findall(ppn_path):
-            identifiers['ppn'] = ppn.text
-        for isni in data.findall(deprecated_path):
-            identifiers['deprecated isnis'].append(isni.text)
-    return identifiers
-
-def get_deprecated_isnis(response):
-    isni_path = 'responseRecord/ISNIAssigned/isniUnformatted'
-    ppn_path = 'responseRecord/noISNI/PPN'
     record_data = get_record_data(response)
     for data in record_data:
         for isni in data.findall(isni_path):
             return isni.text
-        for ppn in data.findall(ppn_path):
-            return ppn.text
 
 def get_source_identifiers(response, source_code):
     record_data = get_record_data(response)
