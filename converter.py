@@ -198,9 +198,9 @@ class Converter():
                     continue
 
             if args.mode in ["prod", "test"]:
-                logging.info("Sending record %s"%record_id)
                 response = {'errors': []}
                 if not records[record_id]['errors']:
+                    logging.info("Sending record %s"%record_id)
                     response_xml = self.send_xml(xml, args.mode, args.origin)
                     response = parse_atompub_response.get_data_from_xml_response_text(response_xml)
                 if 'possible matches' in response:
@@ -209,12 +209,15 @@ class Converter():
                     for ppn in response['possible matches']:
                         if ppn:
                             result = self.sru_api_query.search_with_id('ppn', ppn)
-                            isni_id = parse_sru_response.get_isni_identifier(result)
-                            source_ids = parse_sru_response.get_source_identifiers(result, 'NLFIN')
-                            if isni_id:
-                                assigned_ppns.add(ppn)
-                                ppn_isni_dict[ppn] = isni_id
-                            response['possible matches'][ppn]['source ids'] = [re.sub("[\(].*?[\)]", "", source_id) for source_id in source_ids]
+                            if not result:
+                                response['errors'].append('ISNI SRU API query failed, check record status from ISNI')
+                            else:
+                                isni_id = parse_sru_response.get_isni_identifier(result)
+                                source_ids = parse_sru_response.get_source_identifiers(result, 'NLFIN')
+                                response['possible matches'][ppn]['source ids'] = [re.sub("[\(].*?[\)]", "", source_id) for source_id in source_ids]
+                                if isni_id:
+                                    assigned_ppns.add(isni_id)
+                                    ppn_isni_dict[ppn] = isni_id
                         else:
                             response['errors'].append('Record has possible match, but id missing in ISNI response')
                     for ppn in assigned_ppns:

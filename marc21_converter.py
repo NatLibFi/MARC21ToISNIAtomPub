@@ -26,7 +26,7 @@ class MARC21Converter:
         self.resources = None
         self.sru_bib_query = None
 
-    def get_linked_records(self, record, reader, linked_ids):
+    def get_linked_records(self, record, reader, linked_cluster, linked_ids):
         """
         fetch recursively all records that are linked to organisation authority record with MARC field 510
         :param record: MARC21 record of an organisation
@@ -41,16 +41,17 @@ class MARC21Converter:
                     linked_id = re.sub("[\(].*?[\)]", "", field['0'])
                     if linked_id not in linked_ids:
                         linked_ids.add(linked_id)
+                        linked_cluster.add(linked_id)
                         parameters = {'doc_num': linked_id}
                         response = self.oai_x_query.api_search(parameters=parameters)
                         marc_record = parse_oai_response.get_records(response)[0]
-                        if marc_record['001']:
+                        if '001' in marc_record:
                             for mr in reader:
                                 if not any(mr['001'].data == rec['001'].data for rec in reader):
                                     if mr:
                                         reader.append(mr)
                             reader.append(marc_record)
-                            self.get_linked_records(marc_record, reader, linked_ids)
+                            self.get_linked_records(marc_record, reader, linked_cluster, linked_ids)
                         else:
                             logging.error("Record %s in subfield 0 missing from record %s"%(linked_id, record['001'].data))
 
@@ -76,8 +77,6 @@ class MARC21Converter:
 
         if not args.authority_files:
             logging.info("Requesting authority records with API")
-            section = self.config['AUT OAI-PMH API']
-            self.author_query = api_query.APIQuery(config_section=section)
             if request_ids:
                 section = self.config['AUT X API']
                 self.oai_x_query = api_query.APIQuery(config_section=section)
@@ -88,19 +87,19 @@ class MARC21Converter:
                     if not record in reader:
                         reader.append(record)
             elif args.modified_after or args.created_after or args.until:
+                section = self.config['AUT OAI-PMH API']
+                self.author_query = api_query.APIQuery(config_section=section)
+                query_parameters = {'verb': 'ListRecords'}
                 if args.modified_after:
                     query_parameters['from'] = args.modified_after
                 elif args.created_after:
                     query_parameters['from'] = args.created_after
                 if args.until:
                     query_parameters['until'] = args.until
-                arguments = self.config_values_to_python_object('AUT OAI-PMH API', 'parameters')
-                query_parameters = self.config_values_to_python_object('AUT OAI-PMH API','list_query_parameters')
-                parameters = arguments | query_parameters
                 response = self.author_query.api_search(parameters=query_parameters)
-                request_ids = parse_oai_response.get_identifiers(response)
-                reader = parse_oai_response.get_records(response)
-                token = parse_oai_response.get_resumption_token(response)
+                request_ids = parse_oai_response.get_identifiers(response, query_parameters)
+                reader = parse_oai_response.get_records(response, query_parameters)
+                token = parse_oai_response.get_resumption_token(response, query_parameters)
                 if token:
                     while True:
                         answer = input("Over 1000 updated records. Resume requesting authors (Y/N)?")
@@ -109,25 +108,32 @@ class MARC21Converter:
                         if answer.lower() == "n":
                             sys.exit(2)
                     while token:
-                        token_parameters = {'resumptionToken': token}
-                        response = self.author_query.api_search(token_parameters=token_parameters)
-                        request_ids.extend(parse_oai_response.get_identifiers(response))
-                        reader.extend(parse_oai_response.get_records(response))
-                        token = parse_oai_response.get_resumption_token(response)
+                        query_parameters = {'resumptionToken': token, 'verb': 'ListRecords'}
+                        response = self.author_query.api_search(token_parameters=query_parameters)
+                        request_ids.extend(parse_oai_response.get_identifiers(response, query_parameters))
+                        reader.extend(parse_oai_response.get_records(response, query_parameters))
+                        token = parse_oai_response.get_resumption_token(response, query_parameters)
                 if not request_ids:
                     logging.error("No updated records found within time interval given in parameters")
                     sys.exit(2)
+
             section = self.config['AUT X API']
             self.oai_x_query = api_query.APIQuery(config_section=section)
-
+            #linked_ids = copy.copy(request_ids)
             for record in reader:
-                if '001' in record and record['001'].data not in linked_ids:
-                    linked_cluster = set()
-                    self.get_linked_records(record, reader, linked_cluster)
+                if '001' in record:
+                    marc_records = []
+                    linked_id = record['001'].data
+                    linked_cluster = {linked_id}
+                    if linked_id not in linked_ids:
+                        linked_ids.add(linked_id)
+                        self.get_linked_records(record, marc_records, linked_cluster, linked_ids)
+                    for mr in marc_records:
+                        if not any(mr['001'].data == rec['001'].data for rec in reader):
+                            reader.append(mr)
                     if '110' in record and len(linked_cluster) > 1:
                         mergeable_id_sets.append(linked_cluster)
-                    for id in linked_cluster:
-                        linked_ids.add(id)
+                    linked_ids.update(linked_cluster)
             if not request_ids:
                 logging.error("No records found for conversion with command line arguments")
                 sys.exit(2)
@@ -430,7 +436,6 @@ class MARC21Converter:
 
         merge_ids = {}
         mergeable_relations = ["supersedes", "isSupersededBy"]
-
         for cluster in mergeable_id_sets:
             mergeable_cluster = {}
             for record_id in cluster:
@@ -470,7 +475,9 @@ class MARC21Converter:
                     merge_ids[merge_id] = mergeable_cluster[merge_id]
                 else:
                     for record_id in mergeable_cluster:
-                        identities[record_id]['errors'].append('Check ISNI identifiers from 024 and 983 fields for organisation merge')
+                        for compare_id in mergeable_cluster:
+                            if record_id != compare_id and mergeable_cluster[record_id]['ISNI'] == mergeable_cluster[compare_id]['ISNI']:
+                                identities[record_id]['errors'].append('Check ISNI identifiers from 024 and 983 fields for organisation merge')
 
         for record_id in identities:
             resource_ids = set()
@@ -481,8 +488,9 @@ class MARC21Converter:
                         resource_ids.update(merge_ids[record_id]['merge'])
                     for resource_id in resource_ids:
                         self.api_search_resources(resource_id)
-                        identities[resource_id]['resource'] = self.resources[resource_id]
-            else:
+                        if resource_id in self.resources:
+                            identities[resource_id]['resource'] = self.resources[resource_id]
+            elif record_id in self.resources:
                 identities[record_id]['resource'] = self.resources[record_id]
 
         for merge_id in merge_ids:
@@ -619,7 +627,7 @@ class MARC21Converter:
                 # identifies is not an ISNI data element, but local identifier of the related record 
                 # converted to ISNI identifier later if possible 
                 related_name = {}
-                if field.tag == "373" and record['100']:
+                if field.tag == "373" and '100' in record:
                     related_name['identityType'] = "organisation"
                     related_name['relationType'] = "isAffiliatedWith"
                     for sf in field.get_subfields("s"):
@@ -1092,6 +1100,8 @@ class MARC21Converter:
                         record.add_ordered_field(field)
                 for field in removable_fields:
                     record.remove_field(field)
+                # unnecessary 003 fields from OAI-PMH requests
+                record.remove_fields('003')
                 records.append(record)
     
         return records

@@ -58,8 +58,10 @@ class APIQuery():
         """   
         self.baseurl = config_section.get('baseurl')
         self.database = config_section.get('database', fallback=None)
+        self.constant_parameters = None
         try:
-            self.constant_parameters = json.loads(config_section.get('parameters'))
+            if config_section.get('parameters'):
+                self.constant_parameters = json.loads(config_section.get('parameters'))
         except json.decoder.JSONDecodeError as e:
             logging.error("Parameters %s malformatted in config.ini"%config_section.get('parameters'))
             logging.error(e)
@@ -143,7 +145,6 @@ class APIQuery():
         parameters = {id_type: identifier}
         query = self.form_isni_query(parameters)
         url = self.form_query_url([query])
-        print(url)
         try:
             r = requests.get(url, timeout=self.timeout)
         except requests.exceptions.ReadTimeout:
@@ -175,7 +176,6 @@ class APIQuery():
 
     def api_search(self, query_strings=None, parameters=None, token_parameters=None):
         url = self.form_query_url(query_strings, parameters, token_parameters)
-        print(url)
         try:
             r = requests.get(url, timeout=self.timeout)
         except requests.exceptions.ReadTimeout:
