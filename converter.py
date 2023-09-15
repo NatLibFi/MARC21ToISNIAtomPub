@@ -62,7 +62,7 @@ class Converter():
         parser.add_argument("-O", "--output_marc_fields",
             help="File path for Aleph sequential MARC21 fields code 024 where received ISNI identifiers are written along recent identifiers")
         parser.add_argument("-m", "--mode",
-            help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'send', 'test'], required=True)
+            help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'prod', 'test'], required=True)
         parser.add_argument("-F", "--config_file_path",
             help="File path for configuration file structured for Python ConfigParser")
         args = parser.parse_args()
@@ -79,14 +79,19 @@ class Converter():
         :param args: command line arguments parsed by ConfigParser
         """
         logging.getLogger().setLevel(logging.INFO)
-        if args.mode in ['send', 'test']:
-            if args.mode == 'send':
+        if args.mode in ['prod', 'test']:
+            if args.mode == 'prod':
                 section = self.config['ISNI SRU API']
             if args.mode == 'test':
                 section = self.config['ISNI SRU TEST API']
+            username = None
+            password = None
+            if 'ISNI_USER' in os.environ and 'ISNI_PASSWORD' in os.environ:
+                username = os.environ['ISNI_USER']
+                password = os.environ['ISNI_PASSWORD']
             self.sru_api_query = api_query.APIQuery(config_section=section,
-                                        username=os.environ['ISNI_USER'],
-                                        password=os.environ['ISNI_PASSWORD'])
+                                        username=username,
+                                        password=password)
         if args.modified_after:
             self.modified_after = datetime.date(datetime.strptime(args.modified_after, "%Y-%m-%d"))
         if args.created_after:
@@ -189,34 +194,38 @@ class Converter():
                 if not self.valid_xml(record_id, xml, xmlschema):
                     continue
 
-            if args.mode in ["send", "test"]:
-                logging.info("Sending record %s"%record_id)
+            if args.mode in ["prod", "test"]:
                 response = {'errors': []}
                 if not records[record_id]['errors']:
-                    response = self.send_xml(xml, args.mode, args.origin)
+                    logging.info("Sending record %s"%record_id)
+                    response_xml = self.send_xml(xml, args.mode, args.origin)
+                    response = parse_atompub_response.get_data_from_xml_response_text(response_xml)
                 if 'possible matches' in response:
-                    ppn_isni_dict = {}
+                    assigned_ppns = set()
+                    ppn_isni_dict = dict()
                     for ppn in response['possible matches']:
                         if ppn:
                             result = self.sru_api_query.search_with_id('ppn', ppn)
-                            isni_ids = parse_sru_response.get_isni_identifiers(result)
-                            source_ids = parse_sru_response.get_source_identifiers(result, 'NLFIN')
-                            response['possible matches'][ppn]['source ids'] = [re.sub("[\(].*?[\)]", "", source_id) for source_id in source_ids]
-                            if isni_ids['isni']:
-                                isni = isni_ids['isni']
-                                ppn_isni_dict[ppn] = isni   
+                            if not result:
+                                response['errors'].append('ISNI SRU API query failed, check record status from ISNI')
+                            else:
+                                isni_id = parse_sru_response.get_isni_identifier(result)
+                                source_ids = parse_sru_response.get_source_identifiers(result, 'NLFIN')
+                                response['possible matches'][ppn]['source ids'] = [re.sub("[\(].*?[\)]", "", source_id) for source_id in source_ids]
+                                if isni_id:
+                                    assigned_ppns.add(isni_id)
+                                    ppn_isni_dict[ppn] = isni_id
                         else:
                             response['errors'].append('Record has possible match, but id missing in ISNI response')
-                    for ppn in ppn_isni_dict:
-                        isni = ppn_isni_dict[ppn]
-                        response['possible matches'][isni] = response['possible matches'][ppn]
+                    for ppn in assigned_ppns:
+                        isni_id = ppn_isni_dict[ppn]
+                        response['possible matches'][isni_id] = response['possible matches'][ppn]
                         del(response['possible matches'][ppn])
 
                 if 'isni' in response:
                     if records[record_id]['ISNI']:
                         if records[record_id]['ISNI'] != response['isni']:
-                            result = self.sru_api_query.search_with_id('isn',response['isni'])
-                            response['deprecated isnis'] = parse_sru_response.get_isni_identifiers(result)['deprecated isnis']
+                            response['deprecated isnis'] = parse_atompub_response.get_isni_identifiers(response_xml)['deprecated isnis']
                 response['errors'].extend(records[record_id]['errors'])
                 isnis[record_id] = response
                 if args.output_raport_list:
@@ -276,24 +285,22 @@ class Converter():
     def send_xml(self, xml, mode, origin=""):
         """
         :param xml: string converted XML elementtree in ISNI AtomPub format
-        :param mode: 'send' or 'test' to choose between ISNI production and accept database
-        :param origin:
+        :param section: section of config file, section should contain ISNI production and accept database baseurl
+        :param mode: 'prod' or 'test' to choose between ISNI production and accept database
+        :param origin: source code for AtomPub records
         """
         headers = {'Content-Type': 'application/atom+xml; charset=utf-8'}
-        if mode == 'send':
+        if origin:
+            url += 'ORIGIN=' + origin
+        if mode == 'prod':
             section = self.config['ISNI ATOMPUB API']
         elif mode == 'test':
             section = self.config['ISNI ATOMPUB TEST API']
-        else:
-            logging.error("Unknown sending mode in mode parameter %s"%mode)
         url = section.get('baseurl')
-        if origin:
-            url += 'ORIGIN=' + origin
-
         response = requests.post(url, data=xml.encode('utf-8'), headers=headers)
         xml = response.text
-        parsed_response = parse_atompub_response.get_response_data_from_response_text(xml)
-        return parsed_response
+
+        return xml
 
 if __name__ == '__main__':
     Converter()

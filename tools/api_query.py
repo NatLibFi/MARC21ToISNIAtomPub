@@ -57,9 +57,11 @@ class APIQuery():
         : param password: ISNI password
         """   
         self.baseurl = config_section.get('baseurl')
-        self.database = config_section.get('database')
+        self.database = config_section.get('database', fallback=None)
+        self.constant_parameters = None
         try:
-            self.constant_parameters = json.loads(config_section.get('parameters'))
+            if config_section.get('parameters'):
+                self.constant_parameters = json.loads(config_section.get('parameters'))
         except json.decoder.JSONDecodeError as e:
             logging.error("Parameters %s malformatted in config.ini"%config_section.get('parameters'))
             logging.error(e)
@@ -100,12 +102,11 @@ class APIQuery():
         isni_query: if true, format query for ISNI SRU API
         """
         url = self.baseurl
-        if self.username:
-            url += '/' + self.username + '/'
-        if self.password:  
-            url += self.password + '/'
-        if self.database:
-            url += self.database + '/'
+        for param in [self.username, self.password, self.database]:
+            if param:
+                if not url.endswith('/'):
+                    url += '/'
+                url += param
         url += "?"
         if query_strings:
             query_string = ""

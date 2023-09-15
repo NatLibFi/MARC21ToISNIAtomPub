@@ -46,13 +46,17 @@ def parse_response_data(root):
 
     return parsed_data
 
-def get_response_data_from_response_text(response):
+def get_data_from_xml_response_text(response):
+    """
+    :param response: XML text string from ISNI AtomPub response
+    """
     parsed_data = {'errors': []}
     try:
         tree = ET.ElementTree(ET.fromstring(response))
         root = tree.getroot()
         parsed_data = parse_response_data(root)
     except ET.ParseError:
+        # in case that ISNI response is error message and not XML
         for line in response.splitlines():
             if line:
                 parsed_data['errors'].append(line)
@@ -95,44 +99,24 @@ def get_response_data_from_xml_file(file_path):
             contributor_ids[local_id] = parsed_data   
     return contributor_ids   
 
-def get_assigned_isnis(self):
-    
-    contributor_ids = {}
-    for file_path in file_paths:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-        
-        for record in root.findall('record'):
-            isni = ""
-            deprecated_isni = ""
-            main_name = ""
-            for status in record.findall('isniStatus'):
-                for plain in status.findall('isniPlain'):
-                    isni = plain.text
-            for status in record.findall('deprecatedISNI'):
-            
-                deprecated_isni = status.text
-            for name in record.findall('mainName'):
-                main_name = name.text
+def get_isni_identifiers(response):
+    """
+    :param response: XML text string from ISNI AtomPub response
+    """
+    tree = ET.ElementTree(ET.fromstring(response))
+    root = tree.getroot()
+    identifiers = {'isni': None, 'ppn': None, 'deprecated isnis': []}
+    isni_path = 'ISNIAssigned/isniUnformatted'
+    ppn_path = 'noISNI/PPN'
+    deprecated_path = 'ISNIAssigned/mergedISNI'
+    for isni in root.findall(isni_path):
+        identifiers['isni'] = isni.text
+    for ppn in root.findall(ppn_path):
+        identifiers['ppn'] = ppn.text
+    for deprecated_isni in root.findall(deprecated_path):
+        identifiers['deprecated isnis'].append(deprecated_isni.text)
 
-            ids = []
-            ppn = None
-            for url in record.findall('URL'):
-                ppn = url.text
-            for lid in record.findall('localIdentification'):
-                for id in lid.findall('localIdentifier'):
-                    id = re.sub("[\(].*?[\)]", "", id.text)
-                    ids.append(id)
-                    if len(ids) > 1:
-                        logging.error("Multiple local identifiers linked to one ISNI %s"%isni)
-                    else:
-                        if not id in contributor_ids:
-                            #contributor_ids[id] = {"isni": isni, "deprecated isni": deprecated_isni, "url": ppn, "name": main_name}}
-                            pass
-            if len(ids) > 1:
-                contributor_ids[isni] = {"id": ids, "deprecated isni": deprecated_isni, "url": ppn, "name": main_name}
-
-    return contributor_ids
+    return identifiers
 
 def get_contributor_identifiers(contributor_id):
     """

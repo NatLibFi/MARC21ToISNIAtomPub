@@ -37,7 +37,10 @@ class CSVReader(SpreadsheetReader):
     def __init__(self, file_path):
         sniffer = csv.Sniffer()
         with open(file_path) as fh:
-            delimiter = sniffer.sniff(fh.read(5000)).delimiter
+            try:
+                delimiter = sniffer.sniff(fh.read(5000)).delimiter
+            except csv.Error:
+                delimiter = input("Delimiter not found, input delimiter here: ")
         encodings = ['utf-8', 'utf-8-sig']
         for encoding in encodings:
             self.fh = open(file_path, mode='r', encoding=encoding, newline='')

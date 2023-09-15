@@ -1,6 +1,6 @@
 import unittest
 from resource_list import ResourceList
-from pymarc import Record, Field
+from pymarc import Record, Field, Subfield
 
 class ResourceListTest(unittest.TestCase):
 
@@ -36,32 +36,32 @@ class ResourceListTest(unittest.TestCase):
             tag = '020',
             indicators = [' ',' '],
             subfields = [
-                'a', '9781234567897',
+                Subfield(code='a', value='9781234567897')
         ]))
         record.add_field(Field(
             tag = '022',
             indicators = [' ',' '],
             subfields = [
-                'a', '1455-8904',
+                Subfield(code='a', value='1455-8904')
         ]))
         record.add_field(Field(
             tag = '024',
             indicators = ['0',' '],
             subfields = [
-                'a', 'NLC018413261',
+                Subfield(code='a', value='NLC018413261')
         ]))
         record.add_field(Field(
             tag = '024',
             indicators = ['2',' '],
             subfields = [
-                'a', 'M-321-76543-1',
+                Subfield(code='a', value='M-321-76543-1'),
         ]))
         record.add_field(Field(
             tag = '024',
             indicators = ['7',''],
             subfields = [
-                'a', '10.1228/0103000001002',
-                '2', 'doi'
+                Subfield(code='a', value='10.1228/0103000001002'),
+                Subfield(code='2', value='doi')
         ]))
 
         identifiers = self.rl.get_identifiers(record)
