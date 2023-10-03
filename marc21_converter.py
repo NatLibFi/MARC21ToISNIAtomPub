@@ -25,12 +25,38 @@ class MARC21Converter:
         self.records = {}
         self.resources = None
         self.sru_bib_query = None
+        self.request_ids = []
 
-    def get_linked_records(self, record, reader, linked_cluster, linked_ids):
+    def get_linked_organisation_records(self, id, linked_ids, identities):
         """
-        fetch recursively all records that are linked to organisation authority record with MARC field 510
+        Recursively get identifiers of organisations with successors or predecessors to be merged
+        :param id: local identifier of organisation record
+        :param linked_ids: list of identifiers that may be merged
+        :param identities: dict of identity information
+        """
+        if identities[id]['isni load']:
+            for related in identities[id]['isRelated']:
+                if related['identityType'] == 'organisation' and related['relationType'] in ['supersedes', 'isSupersededBy']:
+                    related_id = related['identifier']
+                    if related_id not in linked_ids:
+                        related_org = identities[related_id]
+                        if identities[id]['ISNI']:
+                            if related_org['ISNI'] == identities[id]['ISNI']:
+                                if related_org['isni load']:
+                                    error_message = 'Record ' + related_id + ' has same ISNI, but 983 field missing'
+                                    identities[id]['errors'].append(error_message)
+                                else:
+                                    linked_ids.append(related_id)
+                                    self.get_linked_organisation_records(related_id, linked_ids, identities)
+                            else:
+                                if related_org['ISNI']:
+                                    identities[id]['isNot'].append({'type': 'ISNI', 'identifier': related_org['ISNI']})
+
+    def request_linked_records(self, record, linked_records, linked_cluster, linked_ids):
+        """
+        Recursively request all records that are linked to organisation authority record with MARC field 510
         :param record: MARC21 record of an organisation
-        :param records: list of recursively gathered MARC21 records
+        :param linked_records: list of ids of recursively requested MARC21 records
         :param linked_ids: list of identifiers of interlinked authority records
         """
         tags = ['500', '510']
@@ -46,46 +72,50 @@ class MARC21Converter:
                         response = self.oai_x_query.api_search(parameters=parameters)
                         marc_record = parse_oai_response.get_records(response)[0]
                         if '001' in marc_record:
-                            for mr in reader:
-                                if not any(mr['001'].data == rec['001'].data for rec in reader):
+                            for mr in linked_records:
+                                if not any(mr['001'].data == rec['001'].data for rec in linked_records):
                                     if mr:
-                                        reader.append(mr)
-                            reader.append(marc_record)
-                            self.get_linked_records(marc_record, reader, linked_cluster, linked_ids)
+                                        linked_records.append(mr)
+                            linked_records.append(marc_record)
+                            self.request_linked_records(marc_record, linked_records, linked_cluster, linked_ids)
                         else:
                             logging.error("Record %s in subfield 0 missing from record %s"%(linked_id, record['001'].data))
 
-    def get_authority_data(self, args, request_ids=set()):
+    def read_marc_records(self, args):
         """
-        :param args: parameters that are passed to converter as command line arguments
-        :param request_ids: set of local identifiers of records to be converted into ISNI request
+        Reads MARC21 records to memory from an authority file or from API requests
+        :param args: Command line arguments
         """
-        if args.resource_files:
-            self.resources = ResourceList(args.resource_files, args.format).titles
+        marc_records = {}
+        if args.authority_files:
+            if args.format == "marc21":
+                reader = MARCReader(open(args.authority_files, 'rb'), to_unicode=True)
+            elif args.format == "alephseq":
+                reader = aleph_seq_reader.AlephSeqReader(open(args.authority_files, 'r', encoding="utf-8"))
+            else:
+                logging.error("Not valid format to convert from: "%args.format)
+                sys.exit(2)
+            record = ""
+            while record is not None:
+                try:
+                    record = next(reader, None)
+                    if record and '001' in record:
+                        record_id = record['001'].data
+                        marc_records[record_id] = record
+                except Exception as e:
+                    logging.exception(e)
+            reader.close()
         else:
-            self.resource_list = ResourceList()
-            self.resources = self.resource_list.titles
-            section = self.config['BIB SRU API']                      
-            self.sru_bib_query = api_query.APIQuery(config_section=section)
-        reader = []
-        # Identifiers of identities to be removed from ISNI request
-        deletable_identities = set()
-        # list of sets of identifiers of organisations possibly to be merged in ISNI request
-        mergeable_id_sets = []
-        # sets of identifiers to keep track which ids are in mergeable_id_sets
-        linked_ids = set()
-
-        if not args.authority_files:
             logging.info("Requesting authority records with API")
-            if request_ids:
+            if self.request_ids:
                 section = self.config['AUT X API']
                 self.oai_x_query = api_query.APIQuery(config_section=section)
-                for id in request_ids:
+                for id in self.request_ids:
                     parameters = {'doc_num': id}
                     response = self.oai_x_query.api_search(parameters=parameters)
                     record = parse_oai_response.get_records(response)[0]
-                    if not record in reader:
-                        reader.append(record)
+                    if not id in marc_records:
+                        marc_records[id] = record
             elif args.modified_after or args.created_after or args.until:
                 section = self.config['AUT OAI-PMH API']
                 self.author_query = api_query.APIQuery(config_section=section)
@@ -97,8 +127,8 @@ class MARC21Converter:
                 if args.until:
                     query_parameters['until'] = args.until
                 response = self.author_query.api_search(parameters=query_parameters)
-                request_ids = parse_oai_response.get_identifiers(response, query_parameters)
-                reader = parse_oai_response.get_records(response, query_parameters)
+                self.request_ids = parse_oai_response.get_identifiers(response, query_parameters)
+                marc_records = parse_oai_response.get_records(response, query_parameters)
                 token = parse_oai_response.get_resumption_token(response, query_parameters)
                 if token:
                     while True:
@@ -110,33 +140,49 @@ class MARC21Converter:
                     while token:
                         query_parameters = {'resumptionToken': token, 'verb': 'ListRecords'}
                         response = self.author_query.api_search(token_parameters=query_parameters)
-                        request_ids.extend(parse_oai_response.get_identifiers(response, query_parameters))
-                        reader.extend(parse_oai_response.get_records(response, query_parameters))
+                        self.request_ids.extend(parse_oai_response.get_identifiers(response, query_parameters))
+                        marc_records.extend(parse_oai_response.get_records(response, query_parameters))
                         token = parse_oai_response.get_resumption_token(response, query_parameters)
-                if not request_ids:
+                if not self.request_ids:
                     logging.error("No updated records found within time interval given in parameters")
                     sys.exit(2)
 
             section = self.config['AUT X API']
             self.oai_x_query = api_query.APIQuery(config_section=section)
-            #linked_ids = copy.copy(request_ids)
-            for record in reader:
-                if '001' in record:
-                    marc_records = []
-                    linked_id = record['001'].data
-                    linked_cluster = {linked_id}
-                    if linked_id not in linked_ids:
-                        linked_ids.add(linked_id)
-                        self.get_linked_records(record, marc_records, linked_cluster, linked_ids)
-                    for mr in marc_records:
-                        if not any(mr['001'].data == rec['001'].data for rec in reader):
-                            reader.append(mr)
-                    if '110' in record and len(linked_cluster) > 1:
-                        mergeable_id_sets.append(linked_cluster)
-                    linked_ids.update(linked_cluster)
-            if not request_ids:
+            linked_ids = set()
+            for id in marc_records:
+                linked_records = []
+                linked_cluster = {id}
+                if id not in linked_ids:
+                    linked_ids.add(id)
+                    self.request_linked_records(record, linked_records, linked_cluster, linked_ids)
+                for mr in linked_records:
+                    linked_id = mr['001'].data
+                    if not any(linked_id == marc_id for marc_id in marc_records):
+                        marc_records[linked_id] = mr
+                linked_ids.update(linked_cluster)
+            if not self.request_ids:
                 logging.error("No records found for conversion with command line arguments")
                 sys.exit(2)
+
+        return marc_records
+
+    def get_authority_data(self, args, request_ids=set()):
+        """
+        Converts MARC21 authority bibliographic record data to dict
+        :param args: parameters that are passed to converter as command line arguments
+        :param request_ids: set of local identifiers of records to be converted into ISNI request
+        """
+        self.request_ids = request_ids
+        if args.resource_files:
+            self.resources = ResourceList(args.resource_files, args.format).titles
+        else:
+            self.resource_list = ResourceList()
+            self.resources = self.resource_list.titles
+            section = self.config['BIB SRU API']
+            self.sru_bib_query = api_query.APIQuery(config_section=section)
+        # Identifiers of identities to be removed from ISNI request
+        deletable_identities = set()
 
         self.max_number_of_titles = int(self.config['SETTINGS'].get('max_titles'))
         if args.identity_types == "persons":
@@ -147,35 +193,16 @@ class MARC21Converter:
             convertible_fields = ['100', '110']
         isnis = {}
         identities = {}
-        if not reader:
-            if args.format == "marc21":
-                reader = MARCReader(open(args.authority_files, 'rb'), to_unicode=True)
-            elif args.format == "alephseq":                     
-                reader = aleph_seq_reader.AlephSeqReader(open(args.authority_files, 'r', encoding="utf-8"))
-            else:
-                logging.error("Not valid format to convert from: "%args.format)
-                sys.exit(2)
 
-        record = ""
-        while record is not None:
-            record_id = None
+        records = self.read_marc_records(args)
+
+        for record_id in records:
+            record = records[record_id]
             if args.authority_files:
-                try:
-                    record = next(reader, None)    
-                except Exception as e:
-                    logging.exception(e) 
-            else:
-                if reader:
-                    record = reader.pop()
-                else:
-                    record = None
-            if record and '001' in record:
-                record_id = record['001'].data
-                if args.authority_files:
-                    request_ids.add(record_id)
+                self.request_ids.add(record_id)
             if not record_id or not any(f in record for f in convertible_fields):
                 if record_id:
-                    request_ids.discard(record_id)
+                    self.request_ids.discard(record_id)
                 continue
             removable = False
             for field in record.get_fields('075'):
@@ -205,19 +232,21 @@ class MARC21Converter:
                         removable = True
             for field in record.get_fields('924'):
                 if 'x' in field:
-                    request_ids.discard(record_id)
+                    self.request_ids.discard(record_id)
             if removable:
-                if record_id in request_ids:
-                    request_ids.discard(record_id)
+                if record_id in self.request_ids:
+                    self.request_ids.discard(record_id)
                 continue
 
+            identities[record_id] = {}
+            identity = identities[record_id]
+            identity['isni load'] = True
             self.records[record_id] = record
             for field in record.get_fields('983'):
                 for sf in field.get_subfields('a'): 
                     if sf == "ei-isni-loadi-ed":
+                        identity['isni load'] = False
                         deletable_identities.add(record_id)
-            identities[record_id] = {}
-            identity = identities[record_id]
             identity['modification date'] = None
             identity['creation date'] = None
             identity['errors'] = []
@@ -234,20 +263,19 @@ class MARC21Converter:
                         identity['modification date'] = formatted_date
             if args.created_after:
                 if identity['creation date'] < args.created_after or args.until and identity['creation date'] >= args.until:
-                    request_ids.discard(record_id)
+                    self.request_ids.discard(record_id)
             if args.modified_after:
                 if identity['modification date'] < args.modified_after or args.until and identity['modification date'] >= args.until:
-                    request_ids.discard(record_id)
+                    self.request_ids.discard(record_id)
 
             if args.identifier:
                 identity['identifier'] = "(" + args.identifier + ")" + record_id
             else:
                 identity['identifier'] = record_id
-            identity['isRelated'] = self.get_related_names(record)
+            identity['isRelated'] = self.get_related_names(record, identity)
             if '100' in record:
                 identity['identityType'] = 'personOrFiction'
                 personal_name = self.get_personal_name(record_id, record['100'])      
-
                 if not personal_name:
                     del(identities[record_id])
                 else:
@@ -435,57 +463,19 @@ class MARC21Converter:
                         self.resources[record_id].append(resource)
 
         merge_ids = {}
-        mergeable_relations = ["supersedes", "isSupersededBy"]
-        for cluster in mergeable_id_sets:
-            mergeable_cluster = {}
-            for record_id in cluster:
-                for idx, related_name in enumerate(identities[record_id]['isRelated']):
-                    relationType = related_name['relationType']
-                    # in case MARC field 510 subfield 0 is missing
-                    if relationType in mergeable_relations:
-                        if related_name.get('identifier'):
-                            related_id = related_name['identifier']
-                            if record_id not in mergeable_cluster:
-                                mergeable_cluster[record_id] = {'ISNI': identities[record_id]['ISNI'],
-                                                                'isNot': set(),
-                                                                'merge': set(),
-                                                                'delete': False}
-                            related_isni = None
-                            if 'ISNI' in identities[related_id]:
-                                related_isni = identities[related_id]['ISNI']
-                            if related_isni and identities[record_id]['ISNI']:
-                                if related_isni != identities[record_id]['ISNI']:
-                                    mergeable_cluster[record_id]['isNot'].add(related_isni)
-                                if related_isni == identities[record_id]['ISNI']:
-                                    mergeable_cluster[record_id]['merge'].add(related_id)
-                            if record_id in deletable_identities:
-                                 mergeable_cluster[record_id]['delete'] = True
-                        else:
-                            identity['errors'].append("Missing subfield 0 in field 510")
-
-            if len(mergeable_cluster) > 1:
-                merge_count = 0
-                merge_id = None
-                for record_id in mergeable_cluster:
-                    if mergeable_cluster[record_id]['merge']:
-                        if not mergeable_cluster[record_id]['delete']:
-                            merge_count += 1
-                            merge_id = record_id
-                if merge_count == 1:
-                    merge_ids[merge_id] = mergeable_cluster[merge_id]
-                else:
-                    for record_id in mergeable_cluster:
-                        for compare_id in mergeable_cluster:
-                            if record_id != compare_id and mergeable_cluster[record_id]['ISNI'] == mergeable_cluster[compare_id]['ISNI']:
-                                identities[record_id]['errors'].append('Check ISNI identifiers from 024 and 983 fields for organisation merge')
+        for id in identities:
+            linked_ids = []
+            self.get_linked_organisation_records(id, linked_ids, identities)
+            if linked_ids:
+                merge_ids[id] = linked_ids
 
         for record_id in identities:
             resource_ids = set()
             if not args.resource_files:
-                if record_id in request_ids:
+                if record_id in self.request_ids and identities[record_id]['isni load']:
                     resource_ids.add(record_id)
                     if record_id in merge_ids:
-                        resource_ids.update(merge_ids[record_id]['merge'])
+                        resource_ids.update(merge_ids[record_id])
                     for resource_id in resource_ids:
                         self.api_search_resources(resource_id)
                         if resource_id in self.resources:
@@ -494,10 +484,8 @@ class MARC21Converter:
                 identities[record_id]['resource'] = self.resources[record_id]
 
         for merge_id in merge_ids:
-            if merge_id in request_ids:
-                identities[merge_id] = self.merge_identities(merge_id, merge_ids[merge_id]['merge'], identities)
-                for isni in merge_ids[merge_id]['isNot']:
-                    identities[merge_id]['isNot'].append({'type': 'ISNI', 'identifier': isni})
+            if merge_id in self.request_ids:
+                identities[merge_id] = self.merge_identities(merge_id, merge_ids[merge_id], identities)
 
         for id in identities:
             if len(identities[id]['resource']) > self.max_number_of_titles:
@@ -544,14 +532,11 @@ class MARC21Converter:
         logging.info("Number of identities to be converted: %s"%(len(identities) - len(deletable_identities)))
 
         for idx in identities:
-            if idx not in request_ids:
+            if idx not in self.request_ids:
                 deletable_identities.add(idx)
         for idx in deletable_identities:
             if idx in identities:
                 del(identities[idx])
-
-        if type(reader) in [MARCReader, aleph_seq_reader.AlephSeqReader]:
-            reader.close()
 
         return identities
 
@@ -612,10 +597,11 @@ class MARC21Converter:
                         if isRelated['identifier'] not in identifiers:
                             self.get_linked_ids(identities, isRelated['identifier'], identifiers, mergeable_relations)
 
-    def get_related_names(self, record):
+    def get_related_names(self, record, identity):
         """ 
         Get related names of persons or organisations in authority data
         :param record: MARC21 record data
+        :param identity: a dict of identity data of the MARC21 record
         """
         related_names = []
         pattern = re.compile(r'-?\d{4}-\d{2}-\d{2}|-?\d{4}-\d{2}|-?\d{4}')
@@ -648,8 +634,10 @@ class MARC21Converter:
                     if field.tag == "510":
                         related_name['identityType'] = "organisation"
                         related_name['organisationName'] = self.get_organisation_name(field, record)
-                    if '0' in field and field['0']:
+                    if '0' in field:
                         related_name['identifier'] = re.sub("[\(].*?[\)]", "", field['0'])
+                    else:
+                        identity['errors'].append(field.tag + " field is missing subfield 0")
                     for sf in field.get_subfields("i"):
                         relationType = sf.replace(":", "")
                     if '110' in record:
@@ -925,7 +913,7 @@ class MARC21Converter:
             record_position += offset
         for record in records:
             if record:
-                self.resource_list.get_record_data(record, identity_id)
+                self.resource_list.add_record_data(record, identity_id)
 
     def get_relevant_resources(self, resources, languages=None):
         """

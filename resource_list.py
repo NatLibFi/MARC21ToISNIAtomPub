@@ -49,13 +49,13 @@ class ResourceList:
                     logging.exception(e)
                     continue
                 if record:
-                    self.get_record_data(record)
+                    self.add_record_data(record)
             reader.close()
             logging.info("Resource records from file %s read"%input_file)
 
-    def get_record_data(self, record, search_id=None):
+    def add_record_data(self, record, search_id=None):
         """
-        Collects data for ISNI request from a bibliograpical MARC21 record 
+        Adds data for ISNI request from a bibliograpical MARC21 record to titles dict
         :param record: bibliographical MARC21 record 
         :param search_id: get record information of only one author with this id
         """
@@ -170,7 +170,6 @@ class ResourceList:
                         authors[author_id] = {"creationRole": function_code, "role": role}
 
         if title:
-
             for author_id in authors:
                 title_copy = copy.copy(title_of_work)
                 title_copy.update(authors[author_id])
