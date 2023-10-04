@@ -7,6 +7,10 @@ RUN useradd -m isniuser && \
 
 USER isniuser
 
-RUN pip install -r requirements.txt
+RUN python3 -m venv isni_venv && \
+    . ./isni_venv/bin/activate && \
+    pip install -U pip && \
+    pip install -r requirements.txt && \
+    . ./isni_venv/bin/activate
 
 CMD python3 -m unittest
