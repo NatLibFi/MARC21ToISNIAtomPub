@@ -72,11 +72,7 @@ class MARC21Converter:
                         response = self.oai_x_query.api_search(parameters=parameters)
                         marc_record = parse_oai_response.get_records(response)[0]
                         if '001' in marc_record:
-                            for mr in linked_records:
-                                if not any(mr['001'].data == rec['001'].data for rec in linked_records):
-                                    if mr:
-                                        linked_records.append(mr)
-                            linked_records.append(marc_record)
+                            linked_records[marc_record['001'].data] = marc_record
                             self.request_linked_records(marc_record, linked_records, linked_cluster, linked_ids)
                         else:
                             logging.error("Record %s in subfield 0 missing from record %s"%(linked_id, record['001'].data))
@@ -128,7 +124,10 @@ class MARC21Converter:
                     query_parameters['until'] = args.until
                 response = self.author_query.api_search(parameters=query_parameters)
                 self.request_ids = parse_oai_response.get_identifiers(response, query_parameters)
-                marc_records = parse_oai_response.get_records(response, query_parameters)
+                requested_records = parse_oai_response.get_records(response, query_parameters)
+                for record in requested_records:
+                    if '001' in record:
+                        marc_records[record['001'].data] = record
                 token = parse_oai_response.get_resumption_token(response, query_parameters)
                 if token:
                     while True:
@@ -150,17 +149,15 @@ class MARC21Converter:
             section = self.config['AUT X API']
             self.oai_x_query = api_query.APIQuery(config_section=section)
             linked_ids = set()
-            for id in marc_records:
-                linked_records = []
-                linked_cluster = {id}
-                if id not in linked_ids:
-                    linked_ids.add(id)
-                    self.request_linked_records(record, linked_records, linked_cluster, linked_ids)
-                for mr in linked_records:
-                    linked_id = mr['001'].data
-                    if not any(linked_id == marc_id for marc_id in marc_records):
-                        marc_records[linked_id] = mr
-                linked_ids.update(linked_cluster)
+            added_records = {}
+            for marc_id in marc_records:
+                linked_records = {}
+                linked_cluster = {marc_id}
+                if marc_id not in linked_ids:
+                    linked_ids.add(marc_id)
+                    self.request_linked_records(marc_records[marc_id], linked_records, linked_cluster, linked_ids)
+                added_records.update(linked_records)
+            marc_records.update(added_records)
             if not self.request_ids:
                 logging.error("No records found for conversion with command line arguments")
                 sys.exit(2)
