@@ -18,7 +18,6 @@ from tools import parse_atompub_response
 from tools import parse_sru_response
 from tools import xlsx_raport_writer
 from tools import api_query
-from tools import api_request
 
 class Converter():
     """
