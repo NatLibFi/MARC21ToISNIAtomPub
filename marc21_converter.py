@@ -98,6 +98,7 @@ class MARC21Converter:
                     if record and '001' in record:
                         record_id = record['001'].data
                         marc_records[record_id] = record
+                        self.request_ids.add(record_id)
                 except Exception as e:
                     logging.exception(e)
             reader.close()
@@ -129,34 +130,51 @@ class MARC21Converter:
                     if '001' in record:
                         marc_records[record['001'].data] = record
                 token = parse_oai_response.get_resumption_token(response, query_parameters)
-                if token:
-                    while True:
-                        answer = input("Over 1000 updated records. Resume requesting authors (Y/N)?")
-                        if answer.lower() == "y":
-                            break
-                        if answer.lower() == "n":
-                            sys.exit(2)
-                    while token:
-                        query_parameters = {'resumptionToken': token, 'verb': 'ListRecords'}
-                        response = self.author_query.api_search(token_parameters=query_parameters)
-                        self.request_ids.extend(parse_oai_response.get_identifiers(response, query_parameters))
-                        marc_records.extend(parse_oai_response.get_records(response, query_parameters))
-                        token = parse_oai_response.get_resumption_token(response, query_parameters)
+                while token:
+                    query_parameters = {'resumptionToken': token, 'verb': 'ListRecords'}
+                    response = self.author_query.api_search(token_parameters=query_parameters)
+                    self.request_ids.update(parse_oai_response.get_identifiers(response, query_parameters))
+                    requested_records = parse_oai_response.get_records(response, query_parameters)
+                    for record in requested_records:
+                        if '001' in record:
+                            marc_records[record['001'].data] = record
+                    token = parse_oai_response.get_resumption_token(response, query_parameters)
                 if not self.request_ids:
                     logging.error("No updated records found within time interval given in parameters")
                     sys.exit(2)
-
+        # get cataloging identifiers whose modification to records are neglected
+        self.cataloguers = self.config_values_to_python_object('SETTINGS', 'cataloguers')
+        for marc_id in marc_records:
+            creation_date = None
+            modification_date = None
+            record = marc_records[marc_id]
+            for field in record.get_fields("CAT"):
+                cataloguer = field['a']
+                if cataloguer not in self.cataloguers:
+                    for sf in field.get_subfields('c'):
+                        formatted_date = sf[:4] + "-" + sf[4:6] + "-" + sf[6:8]
+                        if not creation_date:
+                            creation_date = formatted_date
+                        modification_date = formatted_date
+            if args.created_after:
+                if creation_date < args.created_after or args.until and creation_date >= args.until:
+                    self.request_ids.discard(marc_id)
+            if args.modified_after:
+                if modification_date < args.modified_after or args.until and modification_date >= args.until:
+                    self.request_ids.discard(marc_id)
+        if not args.authority_files:
             section = self.config['AUT X API']
             self.oai_x_query = api_query.APIQuery(config_section=section)
             linked_ids = set()
             added_records = {}
             for marc_id in marc_records:
-                linked_records = {}
-                linked_cluster = {marc_id}
-                if marc_id not in linked_ids:
-                    linked_ids.add(marc_id)
-                    self.request_linked_records(marc_records[marc_id], linked_records, linked_cluster, linked_ids)
-                added_records.update(linked_records)
+                if marc_id in self.request_ids:
+                    linked_records = {}
+                    linked_cluster = {marc_id}
+                    if marc_id not in linked_ids:
+                        linked_ids.add(marc_id)
+                        self.request_linked_records(marc_records[marc_id], linked_records, linked_cluster, linked_ids)
+                    added_records.update(linked_records)
             marc_records.update(added_records)
             if not self.request_ids:
                 logging.error("No records found for conversion with command line arguments")
@@ -195,8 +213,8 @@ class MARC21Converter:
 
         for record_id in records:
             record = records[record_id]
-            if args.authority_files:
-                self.request_ids.add(record_id)
+            if not record_id in self.request_ids:
+                continue
             if not record_id or not any(f in record for f in convertible_fields):
                 if record_id:
                     self.request_ids.discard(record_id)
@@ -244,26 +262,8 @@ class MARC21Converter:
                     if sf == "ei-isni-loadi-ed":
                         identity['isni load'] = False
                         deletable_identities.add(record_id)
-            identity['modification date'] = None
-            identity['creation date'] = None
             identity['errors'] = []
             identity['isNot'] = []
-            # get cataloging identifiers whose modification to records are neglected
-            self.cataloguers = self.config_values_to_python_object('SETTINGS', 'cataloguers')
-            for field in record.get_fields("CAT"):
-                cataloguer = field['a']
-                if cataloguer not in self.cataloguers:
-                    for sf in field.get_subfields('c'):
-                        formatted_date = sf[:4] + "-" + sf[4:6] + "-" + sf[6:8]
-                        if not identity['creation date']:
-                            identity['creation date'] = formatted_date
-                        identity['modification date'] = formatted_date
-            if args.created_after:
-                if identity['creation date'] < args.created_after or args.until and identity['creation date'] >= args.until:
-                    self.request_ids.discard(record_id)
-            if args.modified_after:
-                if identity['modification date'] < args.modified_after or args.until and identity['modification date'] >= args.until:
-                    self.request_ids.discard(record_id)
 
             if args.identifier:
                 identity['identifier'] = "(" + args.identifier + ")" + record_id

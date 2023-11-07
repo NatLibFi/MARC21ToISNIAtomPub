@@ -18,7 +18,6 @@ from tools import parse_atompub_response
 from tools import parse_sru_response
 from tools import xlsx_raport_writer
 from tools import api_query
-from tools import api_request
 
 class Converter():
     """
@@ -170,20 +169,6 @@ class Converter():
         for record_id in records:
             merge_instruction = None
             merge_identifiers = []
-            if merge_instructions:
-                if record_id not in merge_instructions:
-                    continue
-                else:
-                    merge_instruction = merge_instructions[record_id]['instruction']
-                    merge_identifiers = merge_instructions[record_id]['identifiers']
-            elif self.created_after:
-                creation_date = datetime.date(datetime.strptime(records[record_id]['creation date'], "%Y-%m-%d"))
-                if creation_date < self.created_after:
-                    continue
-            elif self.modified_after:
-                modification_date = datetime.date(datetime.strptime(records[record_id]['modification date'], "%Y-%m-%d"))
-                if modification_date < self.modified_after:
-                    continue
             xml = create_xml(records[record_id], merge_instruction, merge_identifiers)
             if not xml:
                 continue
@@ -216,7 +201,7 @@ class Converter():
                                 source_ids = parse_sru_response.get_source_identifiers(result, 'NLFIN')
                                 response['possible matches'][ppn]['source ids'] = [re.sub("[\(].*?[\)]", "", source_id) for source_id in source_ids]
                                 if isni_id:
-                                    assigned_ppns.add(isni_id)
+                                    assigned_ppns.add(ppn)
                                     ppn_isni_dict[ppn] = isni_id
                         else:
                             response['errors'].append('Record has possible match, but id missing in ISNI response')
@@ -295,13 +280,13 @@ class Converter():
         :param origin: source code for AtomPub records
         """
         headers = {'Content-Type': 'application/atom+xml; charset=utf-8'}
-        if origin:
-            url += 'ORIGIN=' + origin
         if mode == 'prod':
             section = self.config['ISNI ATOMPUB API']
         elif mode == 'test':
             section = self.config['ISNI ATOMPUB TEST API']
         url = section.get('baseurl')
+        if origin:
+            url += 'ORIGIN=' + origin
         response = requests.post(url, data=xml.encode('utf-8'), headers=headers)
         xml = response.text
 
