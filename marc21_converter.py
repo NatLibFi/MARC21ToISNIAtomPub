@@ -210,11 +210,8 @@ class MARC21Converter:
         identities = {}
 
         records = self.read_marc_records(args)
-
         for record_id in records:
             record = records[record_id]
-            if not record_id in self.request_ids:
-                continue
             if not record_id or not any(f in record for f in convertible_fields):
                 if record_id:
                     self.request_ids.discard(record_id)
@@ -467,19 +464,18 @@ class MARC21Converter:
                 merge_ids[id] = linked_ids
 
         for record_id in identities:
-            resource_ids = set()
             if not args.resource_files:
+                resource_ids = set()
                 if record_id in self.request_ids and identities[record_id]['isni load']:
                     resource_ids.add(record_id)
                     if record_id in merge_ids:
                         resource_ids.update(merge_ids[record_id])
-                    for resource_id in resource_ids:
-                        self.api_search_resources(resource_id)
-                        if resource_id in self.resources:
-                            identities[resource_id]['resource'] = self.resources[resource_id]
+                for resource_id in resource_ids:
+                    self.api_search_resources(resource_id)
+                    if resource_id in self.resources:
+                        identities[resource_id]['resource'] = self.resources[resource_id]
             elif record_id in self.resources:
                 identities[record_id]['resource'] = self.resources[record_id]
-
         for merge_id in merge_ids:
             if merge_id in self.request_ids:
                 identities[merge_id] = self.merge_identities(merge_id, merge_ids[merge_id], identities)
