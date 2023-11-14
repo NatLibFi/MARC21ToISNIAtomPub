@@ -1,48 +1,42 @@
 import logging
+import os.path
 
 class TermEncoder():
         
     def __init__(self):    
-        self.type_dict = {}    
-        self.country_code_dict = {}
-        self.function_code_dict = {}
-        
-        with open("organisation_types.dat", 'r', encoding = 'utf-8') as fh:
-            for line in fh:
-                try:
-                    values = line.strip().split(';', 1)
-                    self.type_dict.update({values[0]: values[1]})
-                except TypeError:
-                    logging.error("Organisation type missing in dictionary")
-        with open("country_codes.dat", 'r', encoding = 'utf-8') as fh:
-            for line in fh:
-                try:
-                    values = line.strip().split(';', 1)
-                    self.country_code_dict.update({values[0]: values[1]})
-                except TypeError:
-                    logging.error("Value missing in dictionary")    
-        with open("function_codes.dat", 'r', encoding = 'utf-8') as fh:
-            for line in fh:
-                try:
-                    values = line.strip().split(';', 1)
-                    self.function_code_dict.update({values[0]: values[1]})
-                except TypeError:
-                    logging.error("Value missing in dictionary")                
-                
-    def convert_organisation_type(self, organisation_type):
-        if organisation_type in self.type_dict.keys():
-            return self.type_dict[organisation_type]
-        return "Other to be defined"
-    
-    def convert_to_function_code(self, creation_role):
-        if creation_role in self.function_code_dict.keys():
-            return self.function_code_dict[creation_role]
-        return
-                
-    def convert_to_country_code(self, country_name):                           
-        if country_name in self.country_code_dict.keys():
-            return self.country_code_dict[country_name]
-        return
+        loglevel = logging.INFO
+        logger = logging.getLogger()
+        logger.setLevel(loglevel)
+
+        directory = os.path.realpath(os.path.join(os.path.dirname(__file__)))
+        data_directory = os.path.join(directory, 'data')
+        code_files = {
+            'country codes': 'country_codes.dat',
+            'organisation types': 'organisation_types.dat',
+            'function codes': 'function_codes.dat',
+            'person relation types': 'person_relation_types.dat',
+            'organisation relation types': 'organisation_relation_types.dat'
+        }
+        self.code_dicts = {}
+        for name in code_files:
+            self.code_dicts[name] = {}
+
+        for name in code_files:
+            with open(os.path.join(data_directory, code_files[name]), 'r', encoding = 'utf-8') as fh:
+                for line in fh:
+                    try:
+                        values = line.strip().split(';', 1)
+                        self.code_dicts[name][values[0]] = values[1]
+                    except TypeError:
+                        logging.info("Values %s missing in dictionary %s"%(line, name))
+                    except IndexError:
+                        logging.info("Value of a key %s missing in dictionary %s"%(line, name))
+
+    def encode_term(self, term, code_dict_name):
+        if term in self.code_dicts[code_dict_name]:
+            return self.code_dicts[code_dict_name][term]
+        if code_dict_name == "organisation types":
+            return "Other to be defined"
         
     def get_country_codes(self):
-        return self.country_code_dict
+        return self.code_dicts['country codes']
