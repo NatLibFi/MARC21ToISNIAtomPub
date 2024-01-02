@@ -62,7 +62,7 @@ class Converter():
         parser.add_argument("-O", "--output_marc_fields",
             help="File path for Aleph sequential MARC21 fields code 024 where received ISNI identifiers are written along recent identifiers")
         parser.add_argument("--output_to_api",
-            help="ISNI identifiers from ISNI responses are output to API, address is definef in config.ini under section AUT NAMES API")
+            help="ISNI identifiers from ISNI responses are output to API, address is defined in configuration file under section AUT NAMES API")
         parser.add_argument("-m", "--mode",
             help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'prod', 'test'], required=True)
         parser.add_argument("-F", "--config_file_path",
@@ -169,61 +169,62 @@ class Converter():
         for record_id in records:
             merge_instruction = None
             merge_identifiers = []
-            xml = create_xml(records[record_id], merge_instruction, merge_identifiers)
-            if not xml:
-                continue
+            xml = None
+            if not records[record_id]['errors']:
+                xml = create_xml(records[record_id], merge_instruction, merge_identifiers)
             if idx % dirmax == 0:
                 dirindex += 1
             if args.output_directory:
                 subdir = os.path.join(args.output_directory, str(dirindex).zfill(3))
                 if not (os.path.exists(subdir)) and not concat:
                     os.mkdir(subdir)
-            if xmlschema:
+            if xml and xmlschema:
                 if not self.valid_xml(record_id, xml, xmlschema):
                     continue
 
             if args.mode in ["prod", "test"]:
                 response = {'errors': []}
-                if not records[record_id]['errors']:
+                if xml:
                     logging.info("Sending record %s"%record_id)
                     response_xml = self.send_xml(xml, args.mode, args.origin)
                     response = parse_atompub_response.get_data_from_xml_response_text(response_xml)
-                if 'possible matches' in response:
-                    assigned_ppns = set()
-                    ppn_isni_dict = dict()
-                    for ppn in response['possible matches']:
-                        if ppn:
-                            result = self.sru_api_query.search_with_id('ppn', ppn)
-                            if not result:
-                                response['errors'].append('ISNI SRU API query failed, check record status from ISNI')
+                    if 'possible matches' in response:
+                        assigned_ppns = set()
+                        ppn_isni_dict = dict()
+                        for ppn in response['possible matches']:
+                            if ppn:
+                                result = self.sru_api_query.search_with_id('ppn', ppn)
+                                if not result:
+                                    response['errors'].append('ISNI SRU API query failed, check record status from ISNI')
+                                else:
+                                    isni_id = parse_sru_response.get_isni_identifier(result)
+                                    source_ids = parse_sru_response.get_source_identifiers(result, 'NLFIN')
+                                    response['possible matches'][ppn]['source ids'] = [re.sub("[\(].*?[\)]", "", source_id) for source_id in source_ids]
+                                    if isni_id:
+                                        assigned_ppns.add(ppn)
+                                        ppn_isni_dict[ppn] = isni_id
                             else:
-                                isni_id = parse_sru_response.get_isni_identifier(result)
-                                source_ids = parse_sru_response.get_source_identifiers(result, 'NLFIN')
-                                response['possible matches'][ppn]['source ids'] = [re.sub("[\(].*?[\)]", "", source_id) for source_id in source_ids]
-                                if isni_id:
-                                    assigned_ppns.add(ppn)
-                                    ppn_isni_dict[ppn] = isni_id
-                        else:
-                            response['errors'].append('Record has possible match, but id missing in ISNI response')
-                    for ppn in assigned_ppns:
-                        isni_id = ppn_isni_dict[ppn]
-                        response['possible matches'][isni_id] = response['possible matches'][ppn]
-                        del(response['possible matches'][ppn])
+                                response['errors'].append('Record has possible match, but id missing in ISNI response')
+                        for ppn in assigned_ppns:
+                            isni_id = ppn_isni_dict[ppn]
+                            response['possible matches'][isni_id] = response['possible matches'][ppn]
+                            del(response['possible matches'][ppn])
 
-                if 'isni' in response:
-                    if records[record_id]['ISNI']:
-                        if records[record_id]['ISNI'] != response['isni']:
-                            response['deprecated isnis'] = parse_atompub_response.get_isni_identifiers(response_xml)['deprecated isnis']
+                    if 'isni' in response:
+                        if records[record_id]['ISNI']:
+                            if records[record_id]['ISNI'] != response['isni']:
+                                response['deprecated isnis'] = parse_atompub_response.get_isni_identifiers(response_xml)['deprecated isnis']
                 response['errors'].extend(records[record_id]['errors'])
                 isnis[record_id] = response
                 if args.output_raport_list:
                     raport_writer.handle_response(response, record_id, records[record_id])
             elif args.mode == "write":
-                if args.concat:
-                    xml_path = concat_path
-                else:    
-                    xml_path = os.path.join(subdir, record_id + ".xml")
-                self.write_xml(xml, xml_path, args.concat)
+                if xml:
+                    if args.concat:
+                        xml_path = concat_path
+                    else:
+                        xml_path = os.path.join(subdir, record_id + ".xml")
+                    self.write_xml(xml, xml_path, args.concat)
             idx += 1
         logging.info("Conversion done for %s items"%idx)
         if args.concat:

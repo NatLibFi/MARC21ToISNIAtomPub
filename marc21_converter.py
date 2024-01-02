@@ -307,16 +307,18 @@ class MARC21Converter:
             elif '110' in record:
                 identity['identityType'] = 'organisation'
                 organisation_name = self.get_organisation_name(record['110'], record)
-                if not organisation_name:
-                    del(identities[record_id])
+                if not organisation_name['mainName']:
+                    identity['errors'].append("Subfield a missing from field %s"%(record['110']))
                 else:
                     identity['organisationName'] = organisation_name
                     identity['organisationNameVariant'] = []
                     for field in record.get_fields('410'):
                         variant = self.get_organisation_name(field, record)
-                        if variant:
+                        if variant['mainName']:
                             identity['organisationNameVariant'].append(variant)
-                    identity['organisationType'] = self.get_organisation_type(record)   
+                        else:
+                            identity['errors'].append("Subfield a missing from field %s"%(field))
+                    identity['organisationType'] = self.get_organisation_type(record)
             if record_id in identities:
                 identifiers = {}
                 identity['ISNI'] = None
@@ -627,6 +629,8 @@ class MARC21Converter:
                     if field.tag == "510":
                         related_name['identityType'] = "organisation"
                         related_name['organisationName'] = self.get_organisation_name(field, record)
+                        if not related_name['organisationName']['mainName']:
+                            identity['errors'].append("Subfield a missing from field %s"%(field))
                     if '0' in field:
                         related_name['identifier'] = re.sub("[\(].*?[\)]", "", field['0'])
                     else:
@@ -811,9 +815,6 @@ class MARC21Converter:
         if mainName:
             for sf in field.get_subfields("b"):
                 subdivisionName.append(sf)
-        else:
-            logging.error("%s: subfield a missing: %s"%(record['001'].data, field))
-            return
 
         return {"mainName": mainName, "subdivisionName": subdivisionName}           
 
