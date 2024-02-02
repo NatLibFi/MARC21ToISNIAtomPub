@@ -1,64 +1,27 @@
-import logging
-import requests
+import argparse
+import configparser
 import json
+import os
+import logging
+import pickle
+import requests
 import sys
-
-URL_ENCODINGS = {
-    '!': '%21',
-    '#': '%23',
-    '$': '%24',
-    '&': '%26',
-    '\'': '%27',
-    '(': '%28',
-    ')': '%29',
-    '*': '%2A',
-    '+': '%2B',
-    ',': '%2C',
-    '/': '%2F',
-    ': ': '%3A',
-    ';': '%3B',
-    '=': '%3D',
-    '?': '%3F',
-    '@': '%40',
-    '[': '%5B',
-    ']': '%5D',
-    ' ': '%20',
-    '\"': '%22',
-    '%': '%25',
-    '-': '%2D',
-    '.': '%2E',
-    '<': '%3C',
-    '>': '%3E',
-    '\\': '%5C',
-    '^': '%5E',
-    '_': '%5F',
-    '`': '%60',
-    '{': '%7B',
-    '|': '%7C',
-    '}': '%7D',
-    '~': '%7E'
-}  
-
-def encode_chars(string):
-    encoded_string = ""
-    for s in string:
-        if s in URL_ENCODINGS:
-            encoded_string += URL_ENCODINGS[s]
-        else:
-            encoded_string += s
-    return encoded_string
+import parse_isni_response
+import time
+import urllib
 
 class APIQuery():
+
     def __init__(self, config_section, username=None, password=None):
         """
-        class used to make SRU API searches
+        class for initializing paramaters for OAI-PMH and SRU 1.1 searches
         : param config_section: a section of config file parsed by ConfigParser
         : param username: ISNI username
         : param password: ISNI password
         """   
         self.baseurl = config_section.get('baseurl')
         self.database = config_section.get('database', fallback=None)
-        self.constant_parameters = None
+        self.constant_parameters = dict()
         try:
             if config_section.get('parameters'):
                 self.constant_parameters = json.loads(config_section.get('parameters'))
@@ -70,115 +33,107 @@ class APIQuery():
         self.password = None
         self.timeout = int(config_section.get('timeout'))
         if username:
-            self.username = 'username=' + username
+            self.username = username
         if password:
-            self.password = 'password=' + password
+            self.password = password
 
-    def form_isni_query(self, parameters):
-        query = ""
-        for parameter in parameters:
-            if query:
-                query += "+and+"
-            values = parameters[parameter]
-            #if query strings contain whitespace, it must be surrounded by quotations according to ISNI SRU API guidelines 
-            if " " in values:
-                values = "\"" + values + "\""
-            values = values.replace(" ", "+")
-            query += 'pica.' + \
-                    parameter + \
-                    "+" + encode_chars("=") + "+" + \
-                    encode_chars(values)  
-        return query
-
-    def add_query_parameters(self, query, name, value):
-        if not query.endswith('?'):
-            query += "&"
-        return query + name + "=" + value
-
-    def form_query_url(self, query_strings, parameters=None, token_parameters=None):
+    def _form_query_url(self, query="", additional_parameters=dict()):
         """
-        query: query parameters formatted with URL encodings using form_query function
-        additional_parameters: SRU API parameters in dict as keys and values, e. g. {'maximumRecords': '20'}
-        isni_query: if true, format query for ISNI SRU API
+        :param query: query string for sru search
+        :param additional_parameters: dict with ISNI SRU search parameteters, e.g. {'maximumRecords': '100'}
         """
         url = self.baseurl
-        for param in [self.username, self.password, self.database]:
-            if param:
-                if not url.endswith('/'):
-                    url += '/'
-                url += param
-        url += "?"
-        if query_strings:
-            query_string = ""
-            for query in query_strings:                
-                query_string += query
-            query_string = query_string.replace(' ', '%20')
-            url = self.add_query_parameters(url,
-                                            'query',
-                                            query_string)
-        if self.constant_parameters:
-            for parameter in self.constant_parameters:
-                url = self.add_query_parameters(url,
-                                                parameter,
-                                                self.constant_parameters[parameter])
-        if parameters:
-            for parameter in parameters:
-                url = self.add_query_parameters(url,
-                                                parameter,
-                                                parameters[parameter])
-        if token_parameters:
-            for parameter in token_parameters:
-                url = self.add_query_parameters(url,
-                                                parameter,
-                                                encode_chars(token_parameters[parameter]))
+        if self.username and self.password:
+            url += 'username=' + self.username + '/password=' + self.password + '/'
+        if query:
+            query = urllib.parse.quote_plus(query)
+            url += '?query=' + query
+        else:
+            url += '?'
+        for p in additional_parameters:
+            if not url.endswith('?'):
+                url += '&'
+            url += p + '=' + urllib.parse.quote_plus(additional_parameters[p])
+        for p in self.constant_parameters:
+            if not url.endswith('?'):
+                url += '&'
+            url += p + '=' + urllib.parse.quote_plus(self.constant_parameters[p])
 
         return url
 
-    def search_with_id(self, id_type, identifier):
+    def api_search(self, query="", parameters=None):
         """
-        sends multiple ISNI AtomPub requests with contributor's identifiers, response XML files are automatically named with id
-        :param contributor_numbers: contributors ids 
-        :param output_directory: output directory for requested ISNI records
-        :param contributor_id: contrib in ISNI database (e. g. NLFIN)
-
+        Forms query URL and sends OAI-PMH or SRU API request
+        :param query: a string containing sru search query
+        :param parameters: a dict of keyword arguments used as search parameters
         """
-        parameters = {id_type: identifier}
-        query = self.form_isni_query(parameters)
-        url = self.form_query_url([query])
+        url = self._form_query_url(query, parameters)
         try:
             r = requests.get(url, timeout=self.timeout)
         except requests.exceptions.ReadTimeout:
             logging.error("Timeout for query %s"%url)
             return
+
         return r.text
-        
-    def get_data_with_local_identifiers(self, contributor_number, contributor_identifier, source_code):
+
+    def get_isni_query_data(self, query, query_file=None):
         """
-        sends multiple ISNI AtomPub requests with contributor's identifiers, response XML files are automatically named with id
-        :param contributor_number: contributor's source code in ISNI database (e. g. NLFIN)
-        :param contributor_identifier: local identifier of contributors 
-        :param source_code: contributor's database identifier in ISNI database (e. g. FI-ASTERI-N)
+        Performs ISNI SRU API queries and parses query data into dict
+        :param query: a string containing ISNI sru search query
+        :param record_schema: ISNI ARU API recordSchema ("isni-e" or "isni-b")
+        :param query_file: File path to load/save query results in pickle file for possibly continuing interrupted queries
         """
-        source_code = source_code.replace("(", " ")
-        source_code = source_code.replace(")", " ")
-        source_code = source_code.replace("-", "")
+        data = {}
+        data = {'startRecord': 1, 'query': query, 'results': [], 'record number': 2}
+        if query_file and os.path.isfile(query_file):
+            with open(query_file, 'rb') as input_file:
+                data = pickle.load(input_file)
+                if data['query'] != query:
+                    while True:
+                        answer = input("Query result file exits with different query. Overwrite (Y/N)?")
+                        if answer.lower() == "y":
+                            break
+                        if answer.lower() == "n":
+                            sys.exit(2)
 
-        parameters = {"cn": contributor_number + " " + source_code + " " + contributor_identifier}
-        query = self.form_isni_query(parameters)
-        url = self.form_query_url([query])
-        r = requests.get(url, timeout=self.timeout)
-        return r.text
+        startRecord = data['startRecord']
+        while startRecord <= data['record number']:
+            data['startRecord'] = startRecord
+            additional_parameters = {'maximumRecords': '100', 'startRecord': str(startRecord)}
+            url = self._form_query_url(query, additional_parameters)
+            try:
+                results = requests.get(url, timeout=self.timeout).text
+            except requests.exceptions.ReadTimeout:
+                logging.error("Timeout for query %s"%url)
+            data['record number'] = parse_isni_response.get_number_of_records(results)
+            data['results'].extend(parse_isni_response.dictify_xml(results))
+            if query_file:
+                with open(query_file, 'wb') as output:
+                    pickle.dump(data, output, pickle.HIGHEST_PROTOCOL)
+            if data['record number'] > 100:
+                logging.info("Querying records from number %s"%data['record number'])
+                time.sleep(1)
+            startRecord += 100
 
-    def write_request(self, url, file_path):
-        r = requests.get(url, timeout=self.timeout)
-        with open(file_path, 'w', encoding="latin1") as f:
-            f.write(r.text)
+        return data['results']
 
-    def api_search(self, query_strings=None, parameters=None, token_parameters=None):
-        url = self.form_query_url(query_strings, parameters, token_parameters)
-        try:
-            r = requests.get(url, timeout=self.timeout)
-        except requests.exceptions.ReadTimeout:
-            logging.error("Timeout for query %s"%url)
-            return
-        return r.text
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-q", "--query", required=True,
+        help="File path for configuration file structured for Python ConfigParser")
+    parser.add_argument("-u", "--username",
+        help="Username for ISNI SRU API")
+    parser.add_argument("-p", "--password",
+        help="Password for ISNI SRU API")
+    parser.add_argument("-s", "--config_section",
+        help="Name of the section in configuration file", required=True)
+    parser.add_argument("-c", "--config_file_path",
+        help="File path for configuration file structured for Python ConfigParser", required=True)
+    parser.add_argument("-f", "--query_file",
+        help="File path for saving and loading query results", required=True)
+    args = parser.parse_args()
+    config = configparser.ConfigParser()
+    config.read(args.config_file_path)
+    config_section = config[args.config_section]
+    query = APIQuery(config_section, args.username, args.password)
+    query.get_isni_query_data(args.query, args.query_file)

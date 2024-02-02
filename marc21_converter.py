@@ -69,7 +69,7 @@ class MARC21Converter:
                         linked_ids.add(linked_id)
                         linked_cluster.add(linked_id)
                         parameters = {'doc_num': linked_id}
-                        response = self.oai_x_query.api_search(parameters=parameters)
+                        response = self.author_query.api_search(parameters=parameters)
                         marc_record = parse_oai_response.get_records(response)[0]
                         if '001' in marc_record:
                             linked_records[marc_record['001'].data] = marc_record
@@ -106,10 +106,10 @@ class MARC21Converter:
             logging.info("Requesting authority records with API")
             if self.request_ids:
                 section = self.config['AUT X API']
-                self.oai_x_query = api_query.APIQuery(config_section=section)
+                self.author_query = api_query.APIQuery(config_section=section)
                 for id in self.request_ids:
                     parameters = {'doc_num': id}
-                    response = self.oai_x_query.api_search(parameters=parameters)
+                    response = self.author_query.api_search(parameters=parameters)
                     record = parse_oai_response.get_records(response)[0]
                     if not id in marc_records:
                         marc_records[id] = record
@@ -132,7 +132,7 @@ class MARC21Converter:
                 token = parse_oai_response.get_resumption_token(response, query_parameters)
                 while token:
                     query_parameters = {'resumptionToken': token, 'verb': 'ListRecords'}
-                    response = self.author_query.api_search(token_parameters=query_parameters)
+                    response = self.author_query.api_search(parameters=query_parameters)
                     self.request_ids.update(parse_oai_response.get_identifiers(response, query_parameters))
                     requested_records = parse_oai_response.get_records(response, query_parameters)
                     for record in requested_records:
@@ -164,7 +164,7 @@ class MARC21Converter:
                     self.request_ids.discard(marc_id)
         if not args.authority_files:
             section = self.config['AUT X API']
-            self.oai_x_query = api_query.APIQuery(config_section=section)
+            self.author_query = api_query.APIQuery(config_section=section)
             linked_ids = set()
             added_records = {}
             for marc_id in marc_records:
@@ -871,29 +871,26 @@ class MARC21Converter:
             return {"usageDateFrom": start_date, "usageDateTo": end_date}
 
     def api_search_resources(self, identity_id):
-        query_strings = []
         records = []
         # query parameters for Fikka search
-        query_strings.append("melinda.asterinameid=" + identity_id)
-        query_strings.append(" AND (melinda.authenticationcode=finb OR melinda.authenticationcode=finbd)")
+        query = "melinda.asterinameid=" + identity_id + " AND (melinda.authenticationcode=finb OR melinda.authenticationcode=finbd)"
         record_position = 1
         config_parameters = self.config_values_to_python_object('BIB SRU API', 'parameters')
         offset = int(config_parameters['maximumRecords'])
         additional_parameters = {'startRecord': str(record_position)}
         logging.info("Requesting bibliographical records for authority record %s"%identity_id)
-        response = self.sru_bib_query.api_search(query_strings, additional_parameters)
+        response = self.sru_bib_query.api_search(query=query, parameters=additional_parameters)
         response_records = parse_sru_response.get_records(response)    
         if response_records:    
             records.extend(response_records)
         number = parse_sru_response.get_number_of_records(response)
         # if less than 10 query results, query from Melinda
         if number < 10:
-            del query_strings[1]
-            query_strings.append(" NOT melinda.authenticationcode=finb NOT melinda.authenticationcode=finbd")
-            response = self.sru_bib_query.api_search(query_strings, additional_parameters)
+            query = "melinda.asterinameid=" + identity_id + " NOT melinda.authenticationcode=finb NOT melinda.authenticationcode=finbd"
+            response = self.sru_bib_query.api_search(query=query, parameters=additional_parameters)
             response_records = parse_sru_response.get_records(response) 
             if response_records:         
-                records.extend(response_records)       
+                records.extend(response_records)
             number = parse_sru_response.get_number_of_records(response)
         max_number = int(self.config['BIB SRU API'].get('total_records'))
         if number > max_number:
@@ -901,7 +898,7 @@ class MARC21Converter:
         record_position += offset
         while (record_position - 1 < number):
             additional_parameters['startRecord'] = str(record_position)
-            response = self.sru_bib_query.api_search(query_strings, additional_parameters)
+            response = self.sru_bib_query.api_search(query=query, parameters=additional_parameters)
             if response_records:  
                 records.extend(parse_sru_response.get_records(response))
             record_position += offset
@@ -963,6 +960,7 @@ class MARC21Converter:
         Write ISNI identifier even if it exists in record in order to
         update record to get cataloguer name to record.
         :param isni_response: a dict containing assigned ISNIs and possible matches
+        :param identifier: source code used in ISNI request, e.g. NLFIN
         """
         records = []
         for record_id in isni_response:
@@ -981,7 +979,7 @@ class MARC21Converter:
                 record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=[Subfield(code='x', value='KESKEN-ISNI')]))
                 for error in result['errors']:
                     record.add_ordered_field(Field(tag = '924', indicators = [' ',' '], subfields=[Subfield(code='q', value=error)]))
-            elif 'possible matches' in result:
+            elif result.get('possible matches'):
                 # if record is rich, it is entered to ISNI production with PPN or ISNI, so no actions needed
                 if 'ppn' in result or 'isni' in result:
                     pass
@@ -1000,31 +998,38 @@ class MARC21Converter:
                             text = "Asteri-id " + local_identifier + " " + record_id + " lisättävä ISNIin tai tarkistettava että merge-merkintä oikein"
                             status_field.add_subfield('q', text)
                             possible_matches.remove(field['a'])
-                    for id in possible_matches:
-                        subfields = [Subfield(code='a', value=id)]
-                        if len(id) == 9:
-                            subfields.append(Subfield(code='2', value='isni-ppn'))
-                        else:
+                    for pm in possible_matches:
+                        subfields = []
+                        if 'isni' in pm:
+                            subfields.append(Subfield(code='a', value=pm['isni']))
                             subfields.append(Subfield(code='2', value='isni'))
-                        if record_id in result['possible matches'][id]['source ids']:
+                        elif 'ppn' in pm:
+                            subfields.append(Subfield(code='a', value=pm['ppn']))
+                            subfields.append(Subfield(code='2', value='isni-ppn'))
+                        if any(record_id == pm['sources'][code] for code in pm['sources']):
                             if len(result['possible matches']) == 1:
                                 status_field.add_subfield('q', 'sparse record')
                                 continue
                             else:
                                 subfields.append(Subfield(code='q', value='=tämä tietue'))
-                        elif result['possible matches'][id]['source ids']:
-                            subfields.append(Subfield(code='q', value='=Asterin tietue(et): ' + ', '.join(result['possible matches'][id]['source ids'])))
+                        elif identifier:
+                            local_identifiers = []
+                            for code in pm['sources']:
+                                if identifier == code:
+                                    local_identifiers.append(pm['sources'][code])
+                            if local_identifiers:
+                                subfields.append(Subfield(code='q', value='=Asterin tietue(et): ' + ', '.join(local_identifiers)))
                         subfields.append(Subfield(code='d', value=date_today))
                         field = Field(tag = '924', indicators = ['7',' '], subfields=subfields)
                         record.add_ordered_field(field)
-            elif 'reason' in result:
+            elif result.get('reason'):
                 update_fields = True
                 status_field = Field(tag = '924', indicators = [' ',' '], subfields=[Subfield(code='x', value='KESKEN-ISNI')])
                 if result['reason'] == 'no match initial database':
                     status_field.add_subfield('q', 'sparse record')
                 else:
                     status_field.add_subfield('q', result['reason'])
-            elif 'isni' in result:
+            elif result.get('isni'):
                 isni = result['isni']
                 for field in record.get_fields("924"):
                     update_fields = True

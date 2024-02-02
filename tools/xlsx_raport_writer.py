@@ -63,8 +63,11 @@ class RaportWriter():
             else:
                 cells.append('')
             cells.append('')
-            for id in response['possible matches']:
-                cells.append(id)
+            for pm in response['possible matches']:
+                if 'isni' in pm:
+                    cells.append(pm['isni'])
+                elif 'ppn' in pm:
+                    cells.append(pm['ppn'])
             self.write_response('epäonnistuneet', cells)
         elif response.get('errors'):
             cells.extend(response['errors'])
@@ -80,4 +83,3 @@ class RaportWriter():
         for idx, value in enumerate(cells):
             ws.cell(row=row_number, column=idx+1, value=value)
         wb.save(filename = self.output_path)
-        

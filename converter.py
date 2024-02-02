@@ -1,6 +1,4 @@
 import logging
-from xml.dom.minidom import parseString
-import xml.etree.cElementTree as ET
 from lxml import etree
 import os
 import io
@@ -14,7 +12,7 @@ from datetime import datetime
 from isni_request import create_xml
 from marc21_converter import MARC21Converter
 from gramex_converter import GramexConverter
-from tools import parse_atompub_response
+from tools import parse_isni_response
 from tools import parse_sru_response
 from tools import xlsx_raport_writer
 from tools import api_query
@@ -183,41 +181,32 @@ class Converter():
                     continue
 
             if args.mode in ["prod", "test"]:
-                response = {'errors': []}
+                isni_data = {'errors': []}
                 if xml:
                     logging.info("Sending record %s"%record_id)
-                    response_xml = self.send_xml(xml, args.mode, args.origin)
-                    response = parse_atompub_response.get_data_from_xml_response_text(response_xml)
-                    if 'possible matches' in response:
-                        assigned_ppns = set()
-                        ppn_isni_dict = dict()
-                        for ppn in response['possible matches']:
-                            if ppn:
-                                result = self.sru_api_query.search_with_id('ppn', ppn)
+                    response = self.send_xml(xml, args.mode, args.origin)
+                    if response.status_code != 200:
+                        isni_data['errors'].extend([line for line in response.text.splitlines() if line])
+                    else:
+                        isni_data.update(parse_isni_response.dictify_xml(response.text)[0])
+                    if 'possible matches' in isni_data:
+                        for pm in isni_data['possible matches']:
+                            if 'ppn' in pm:
+                                ppn = pm['ppn']
+                                result = self.sru_api_query.get_isni_query_data('ppn='+ppn)[0]
                                 if not result:
-                                    response['errors'].append('ISNI SRU API query failed, check record status from ISNI')
+                                    isni_data['errors'].append('ISNI SRU API query failed, check record status from ISNI')
                                 else:
-                                    isni_id = parse_sru_response.get_isni_identifier(result)
-                                    source_ids = parse_sru_response.get_source_identifiers(result, 'NLFIN')
-                                    response['possible matches'][ppn]['source ids'] = [re.sub("[\(].*?[\)]", "", source_id) for source_id in source_ids]
-                                    if isni_id:
-                                        assigned_ppns.add(ppn)
-                                        ppn_isni_dict[ppn] = isni_id
+                                    if 'isni' in result:
+                                        pm['isni'] = result['isni']
+                                    source_ids = result['sources']
+                                    pm['sources'] ={code: re.sub("[\(].*?[\)]", "", source_ids[code]) for code in source_ids}
                             else:
-                                response['errors'].append('Record has possible match, but id missing in ISNI response')
-                        for ppn in assigned_ppns:
-                            isni_id = ppn_isni_dict[ppn]
-                            response['possible matches'][isni_id] = response['possible matches'][ppn]
-                            del(response['possible matches'][ppn])
-
-                    if 'isni' in response:
-                        if records[record_id]['ISNI']:
-                            if records[record_id]['ISNI'] != response['isni']:
-                                response['deprecated isnis'] = parse_atompub_response.get_isni_identifiers(response_xml)['deprecated isnis']
-                response['errors'].extend(records[record_id]['errors'])
-                isnis[record_id] = response
+                                isni_data['errors'].append('Record has possible match in ISNI without id')
+                isni_data['errors'].extend(records[record_id]['errors'])
+                isnis[record_id] = isni_data
                 if args.output_raport_list:
-                    raport_writer.handle_response(response, record_id, records[record_id])
+                    raport_writer.handle_response(isni_data, record_id, records[record_id])
             elif args.mode == "write":
                 if xml:
                     if args.concat:
@@ -232,8 +221,6 @@ class Converter():
                 concat_file.write(bytes("</root>", "UTF-8"))
         if isnis:
             isni_records = self.converter.create_isni_fields(isnis, args.identifier)
-            if args.output_to_api:
-                api_request.send_isni_records(isni_records)
             if args.output_marc_fields:
                 self.converter.write_isni_fields(args.output_marc_fields, isni_records)
 
@@ -289,9 +276,8 @@ class Converter():
         if origin:
             url += 'ORIGIN=' + origin
         response = requests.post(url, data=xml.encode('utf-8'), headers=headers)
-        xml = response.text
 
-        return xml
+        return response
 
 if __name__ == '__main__':
     Converter()

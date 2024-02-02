@@ -1,13 +1,13 @@
 import io
-from lxml import etree as ET
+import json
+from lxml import objectify, etree as ET
 from pymarc import XmlHandler, Field, Record
 import xml.sax
 from xml.sax import make_parser
 from xml.sax.handler import ContentHandler, feature_namespaces
 import unicodedata
 
-NAMESPACES = {'zs': 'http://docs.oasis-open.org/ns/search-ws/sruResponse',
-              'srw': 'http://www.loc.gov/zing/srw/'}
+NAMESPACES = {'zs': 'http://docs.oasis-open.org/ns/search-ws/sruResponse'}
 
 def startElementNS(self, name, qname, attrs):
     """monkey patched pymarc function for OAI-PMH response"""
@@ -55,39 +55,6 @@ def endElementNS(self, name, qname):
 
     self._text = []
 
-def get_record_data(response):
-    record_data = []
-    root = ET.fromstring(bytes(response, encoding='utf-8'))
-    for records in root.findall('srw:records', NAMESPACES):
-        for record in records.findall('srw:record', NAMESPACES):
-            record_data.extend(record.findall('srw:recordData', NAMESPACES))
-    return record_data
-
-def get_isni_identifier(response):
-    isni_path = 'responseRecord/ISNIAssigned/isniUnformatted'
-    record_data = get_record_data(response)
-    for data in record_data:
-        for isni in data.findall(isni_path):
-            return isni.text
-
-def get_source_identifiers(response, source_code):
-    record_data = get_record_data(response)
-    sources_ids = set()
-    paths = ['responseRecord/ISNINotAssigned/ISNIMetadata/sources',
-             'responseRecord/ISNIAssigned/ISNIMetadata/sources']
-    for path in paths:
-        for data in record_data:
-            for source in data.findall(path):
-                source_identifier = None
-                code_of_source = None
-                for code_of_source in source.findall('codeOfSource'):
-                    code_of_source = code_of_source.text
-                for source_identifier in source.findall('sourceIdentifier'):
-                    source_identifier = source_identifier.text
-                if code_of_source == source_code:
-                    sources_ids.add(source_identifier)
-    return sources_ids
-    
 def get_number_of_records(response):
     tree = ET.ElementTree(ET.fromstring(response))
     root = tree.getroot()

@@ -151,9 +151,10 @@ class MARC21ConverterTest(unittest.TestCase):
         isni_response = {'000000015': {'isni': '0000000474363482', 'sources': []},
                          '000000016': {'isni': '0000000484862619', 'sources': []},
                          '000000017': {'isni': '0000000000000001', 'sources': []},
-                         '000000018': {'possible matches': {'000000001': {'source ids': ['000000018']}}},
-                         '000000019': {'possible matches': {'000000001': {'source ids': ['000000018']}}}
+                         '000000018': {'possible matches': [{'ppn': '123456789', 'sources': {'ID': '000000018'}}]},
+                         '000000019': {'possible matches': [{'ppn': '123456789', 'sources': {'ID': '000000018'}}]}
                         }
+
         isni_records = self.mc.create_isni_fields(isni_response, args.identifier)
 
         self.assertNotIn('000000014', identities.keys())
@@ -180,7 +181,6 @@ class MARC21ConverterTest(unittest.TestCase):
                 self.assertEqual(number_of_fields(record, '924', 'q', 'isNot'), 1)
                 self.assertEqual(get_isnis(record), [])
                 self.assertEqual(is_marked(record), True)
-        isni_response = {'000000018': {'possible matches': {'000000001': {'source ids': ['000000017']}}}}
 
     def test_isni_instructions(self):
         identities = self.mc.get_authority_data(get_mock_args())
