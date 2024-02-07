@@ -523,7 +523,7 @@ class MARC21Converter:
                 deletable_identities.add(record_id)
                 del_counter += 1
 
-        logging.info("Number of discarded records without resources: %s"%del_counter) 
+        logging.info("Number of discarded records: %s"%del_counter)
         logging.info("Number of identities to be converted: %s"%(len(identities) - len(deletable_identities)))
 
         for idx in identities:

@@ -1,12 +1,11 @@
-import argparse
-import configparser
+#!/usr/bin/env python3
 import json
 import os
 import logging
 import pickle
 import requests
 import sys
-import parse_isni_response
+from tools import parse_isni_response
 import time
 import urllib
 
@@ -95,45 +94,28 @@ class APIQuery():
                             break
                         if answer.lower() == "n":
                             sys.exit(2)
-
         startRecord = data['startRecord']
-        while startRecord <= data['record number']:
-            data['startRecord'] = startRecord
-            additional_parameters = {'maximumRecords': '100', 'startRecord': str(startRecord)}
-            url = self._form_query_url(query, additional_parameters)
-            try:
-                results = requests.get(url, timeout=self.timeout).text
-            except requests.exceptions.ReadTimeout:
-                logging.error("Timeout for query %s"%url)
-            data['record number'] = parse_isni_response.get_number_of_records(results)
-            data['results'].extend(parse_isni_response.dictify_xml(results))
-            if query_file:
-                with open(query_file, 'wb') as output:
-                    pickle.dump(data, output, pickle.HIGHEST_PROTOCOL)
-            if data['record number'] > 100:
-                logging.info("Querying records from number %s"%data['record number'])
-                time.sleep(1)
-            startRecord += 100
+        if not data['record number']:
+            logging.error("Query %s results missing number of records"%data['query'])
+        else:
+            while startRecord <= data['record number']:
+                data['startRecord'] = startRecord
+                additional_parameters = {'maximumRecords': '100', 'startRecord': str(startRecord)}
+                url = self._form_query_url(query, additional_parameters)
+                try:
+                    results = requests.get(url, timeout=self.timeout).text
+                except requests.exceptions.ReadTimeout:
+                    logging.error("Timeout for query %s"%url)
+                data['record number'] = parse_isni_response.get_number_of_records(results)
+                data['results'].extend(parse_isni_response.dictify_xml(results))
+                if query_file:
+                    with open(query_file, 'wb') as output:
+                        pickle.dump(data, output, pickle.HIGHEST_PROTOCOL)
+                if not data['record number']:
+                    break
+                if data['record number'] > 100:
+                    logging.info("Querying records from number %s"%startRecord)
+                    time.sleep(1)
+                startRecord += 100
 
         return data['results']
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-q", "--query", required=True,
-        help="File path for configuration file structured for Python ConfigParser")
-    parser.add_argument("-u", "--username",
-        help="Username for ISNI SRU API")
-    parser.add_argument("-p", "--password",
-        help="Password for ISNI SRU API")
-    parser.add_argument("-s", "--config_section",
-        help="Name of the section in configuration file", required=True)
-    parser.add_argument("-c", "--config_file_path",
-        help="File path for configuration file structured for Python ConfigParser", required=True)
-    parser.add_argument("-f", "--query_file",
-        help="File path for saving and loading query results", required=True)
-    args = parser.parse_args()
-    config = configparser.ConfigParser()
-    config.read(args.config_file_path)
-    config_section = config[args.config_section]
-    query = APIQuery(config_section, args.username, args.password)
-    query.get_isni_query_data(args.query, args.query_file)

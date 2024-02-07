@@ -20,7 +20,6 @@ class APIQueryTest(unittest.TestCase):
         parameters = {'maximumRecords': '100'}
         query_strings = "cn=nlfin and not cn=isni"   
         query_url = self.sru_api_query._form_query_url(query_strings, additional_parameters=parameters)
-        print(query_url)
         self.assertEqual("http:xxxxx.xxxx?query=cn%3Dnlfin+and+not+cn%3Disni&maximumRecords=100&operation=searchRetrieve", query_url)
         query_strings = "cn=nlfin and upd:2024"
         query_url = self.sru_api_query._form_query_url(query_strings, additional_parameters=parameters)

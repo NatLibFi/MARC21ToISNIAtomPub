@@ -1,7 +1,6 @@
 import unittest
 import shutil
 import sys
-from unittest import mock
 from converter import Converter
 from resource_list import ResourceList
 from pymarc import Field, Subfield

@@ -13,7 +13,6 @@ from isni_request import create_xml
 from marc21_converter import MARC21Converter
 from gramex_converter import GramexConverter
 from tools import parse_isni_response
-from tools import parse_sru_response
 from tools import xlsx_raport_writer
 from tools import api_query
 
@@ -193,14 +192,13 @@ class Converter():
                         for pm in isni_data['possible matches']:
                             if 'ppn' in pm:
                                 ppn = pm['ppn']
-                                result = self.sru_api_query.get_isni_query_data('ppn='+ppn)[0]
-                                if not result:
-                                    isni_data['errors'].append('ISNI SRU API query failed, check record status from ISNI')
-                                else:
+                                result = self.sru_api_query.get_isni_query_data('ppn='+ppn)
+                                if result:
+                                    result = result[0]
                                     if 'isni' in result:
                                         pm['isni'] = result['isni']
                                     source_ids = result['sources']
-                                    pm['sources'] ={code: re.sub("[\(].*?[\)]", "", source_ids[code]) for code in source_ids}
+                                    pm['sources'] = {code: re.sub("[\(].*?[\)]", "", source_ids[code]) for code in source_ids}
                             else:
                                 isni_data['errors'].append('Record has possible match in ISNI without id')
                 isni_data['errors'].extend(records[record_id]['errors'])

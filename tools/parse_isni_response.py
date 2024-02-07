@@ -6,7 +6,8 @@ NAMESPACES = {'srw': 'http://www.loc.gov/zing/srw/'}
 def get_number_of_records(response):
     root = ET.fromstring(bytes(response, encoding='latin1'))
     for number in root.findall('srw:numberOfRecords', NAMESPACES):
-        return int(number.text)
+        if number.text is not None:
+            return int(number.text)
 
 def get_response_records(response):
     """
@@ -226,7 +227,8 @@ def dictify_xml(response):
         identifier_obj = get_identifier(record, status)
         if status == 'noISNI':
             isni_record['reason'] = get_reason(record, status)
-        isni_record[identifier_obj['type']] = identifier_obj['identifier']
+        if identifier_obj:
+            isni_record[identifier_obj['type']] = identifier_obj['identifier']
         isni_record['possible matches'] = get_possible_matches(record, status)
         isni_record['deprecated isnis'] = get_deprecated_isnis(record, status)
         identity_type = get_identity_type(record, status)
