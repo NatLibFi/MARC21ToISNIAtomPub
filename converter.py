@@ -71,6 +71,7 @@ class Converter():
             help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'prod', 'test'], required=True)
         parser.add_argument("-F", "--config_file_path",
             help="File path for configuration file structured for Python ConfigParser")
+
         args = parser.parse_args()
         self.converter = None
         self.modified_after = None
@@ -100,11 +101,7 @@ class Converter():
             self.sru_api_query = api_query.APIQuery(config_section=section,
                                         username=username,
                                         password=password)
-        if args.modified_after:
-            self.modified_after = datetime.date(datetime.strptime(args.modified_after, "%Y-%m-%d"))
-        if args.created_after:
-            self.created_after = datetime.date(datetime.strptime(args.created_after, "%Y-%m-%d"))
-        
+
         if args.mode == 'write':
             if not args.output_directory:
                 logging.error("Mode is set to write. Set output directory parameter for output files")
@@ -283,6 +280,26 @@ class Converter():
             return {'identifier': isni_id, 'type': 'PPN'}
         else:
             logging.error('The length of ISNI identifier %s is not 9 or 16 characters'%isni_id)
+
+    def remove_requested_id_from_file(self, file_path, sent_record_id):
+        """
+        Reads file that contains record ids to be sent to ISNI, removes sent id and rewrites file
+        :param file_path: File path fo
+        :sent_record_id: Id of record requested to ISNI
+        """
+        unsent_ids = set()
+        with open('file_path', 'r', encoding='utf-8') as fh:
+            unsent_ids = {row.rstrip() for row in fh}
+        if sent_record_id in unsent_ids:
+            unsent_ids.remove(sent_record_id)
+        else:
+            logging.error('Record id % not fouin id_write_list  '%sent_record_id)
+        if unsent_ids:
+            with open('file_path', 'w', encoding='utf-8') as output:
+                for id in unsent_ids:
+                    output.write(id + "\n")
+        else:
+            os.remove(file_path)
 
     def write_xml(self, xml, file_path, concat):
         """
