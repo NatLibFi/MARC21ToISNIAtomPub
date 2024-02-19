@@ -17,15 +17,17 @@ class APIQuery():
         : param config_section: a section of config file parsed by ConfigParser
         : param username: ISNI username
         : param password: ISNI password
-        """   
+        """
         self.baseurl = config_section.get('baseurl')
         self.database = config_section.get('database', fallback=None)
         self.constant_parameters = dict()
         try:
             if config_section.get('parameters'):
                 self.constant_parameters = json.loads(config_section.get('parameters'))
+            if config_section.get('accept_headers'):
+                self.headers = json.loads(config_section.get('accept_headers'))
         except json.decoder.JSONDecodeError as e:
-            logging.error("Parameters %s malformatted in config.ini"%config_section.get('parameters'))
+            logging.error("%s malformatted in config.ini"%config_section)
             logging.error(e)
             sys.exit(2)
         self.username = None

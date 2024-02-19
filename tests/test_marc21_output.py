@@ -39,10 +39,13 @@ class MARC21OutputTest(unittest.TestCase):
                      '000000003': {'isni': '0000000000000003'},
                      '000000004': {'isni': '0000000000000004'}
                     }
-        records = c.converter.create_isni_fields(cls.isnis)
         cls.isni_records = {}
-        for record in records:
-            cls.isni_records[record['001'].data] = record
+        records = []
+        for id in cls.isnis:
+            record = c.converter.create_isni_fields(id, cls.isnis[id])
+            if record:
+                cls.isni_records[record['001'].data] = record
+                records.append(record)
         c.converter.write_isni_fields(cls.output_marc_fields, records)
         input_reader = aleph_seq_reader.AlephSeqReader(open(cls.authority_files, 'r', encoding="utf-8"))
         output_reader = aleph_seq_reader.AlephSeqReader(open(cls.output_marc_fields, 'r', encoding="utf-8"))

@@ -153,9 +153,11 @@ class MARC21ConverterTest(unittest.TestCase):
                          '000000018': {'possible matches': [{'ppn': '123456789', 'sources': {'ID': '000000018'}}]},
                          '000000019': {'possible matches': [{'ppn': '123456789', 'sources': {'ID': '000000018'}}]}
                         }
-
-        isni_records = self.mc.create_isni_fields(isni_response, args.identifier)
-
+        isni_records = []
+        for id in isni_response:
+            record = self.mc.create_isni_fields(id, isni_response[id], args.identifier)
+            if record:
+                isni_records.append(record)
         self.assertNotIn('000000014', identities.keys())
         for record in isni_records:
             if record['001'].data == '000000015':

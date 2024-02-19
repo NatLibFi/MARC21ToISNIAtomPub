@@ -15,6 +15,7 @@ from gramex_converter import GramexConverter
 from tools import parse_isni_response
 from tools import xlsx_raport_writer
 from tools import api_query
+from tools import api_request
 
 class Converter():
     """
@@ -45,21 +46,27 @@ class Converter():
             help="Restrict requested records either to persons or organisations", choices=['persons', 'organisations'])
         parser.add_argument("-u", "--until",
             help="Request records created or modified before the set date formatted YYYY-MM-DD")
+        parser.add_argument("-s", "--time_stamp",
+            help="File path for time stamp for last ISNI update")
         input_group = parser.add_mutually_exclusive_group()
+        input_group.add_argument("-S", "--modified_after_time_stamp",
+            help="Request records modified or created on or after time in time stamp file")
         input_group.add_argument("-M", "--modified_after",
             help="Request records modified or created on or after the set date formatted YYYY-MM-DD")
         input_group.add_argument("-C", "--created_after",
             help="Request records created on or after the set date formatted YYYY-MM-DD")
-        input_group.add_argument("-l", "--id_list",
-            help="Path of text file containing local identifiers, one in every row, of records to be requested to ISNI requestor")
         input_group.add_argument("-I", "--input_raport_list",
             help="Path of CSV file containing merge instructions for ISNI requests")
+        input_group.add_argument("-l", "--id_list",
+            help="Path of text file containing local identifiers, one in every row, of records to be requested to ISNI requestor")
+        parser.add_argument("-w", "--id_write_list", action='store_true',
+            help="Keep track of identifiers of records that are unsent in case of execution halting. Overwrite file in path defined with id_list arg")
         parser.add_argument("-R", "--output_raport_list",
             help="File path of CSV file raport for unsuccesful ISNI requests")
         parser.add_argument("-O", "--output_marc_fields",
             help="File path for Aleph sequential MARC21 fields code 024 where received ISNI identifiers are written along recent identifiers")
-        parser.add_argument("--output_to_api",
-            help="ISNI identifiers from ISNI responses are output to API, address is defined in configuration file under section AUT NAMES API")
+        parser.add_argument("--output_to_api", action='store_true',
+            help="ISNI identifiers from ISNI responses are output to API, address is definef in config.ini under section AUT NAMES API")
         parser.add_argument("-m", "--mode",
             help="Mode of program: Write requests into a directory or send them to ISNI or test sending to test database", choices=['write', 'prod', 'test'], required=True)
         parser.add_argument("-F", "--config_file_path",
@@ -83,6 +90,8 @@ class Converter():
                 section = self.config['ISNI SRU API']
             if args.mode == 'test':
                 section = self.config['ISNI SRU TEST API']
+            if args.output_to_api:
+                section = self.config['AUT NAMES API']
             username = None
             password = None
             if 'ISNI_USER' in os.environ and 'ISNI_PASSWORD' in os.environ:
@@ -103,6 +112,10 @@ class Converter():
             
         if (args.authority_files or args.resource_files) and not args.format:
             logging.error("Using authority_files or resource_files command line arguments but argument format is missing.")
+            sys.exit(2)
+
+        if args.id_write_list and not args.id_list:
+            logging.error("With id_write_list arg id_list arg must also be included to define write path.")
             sys.exit(2)
 
         logging.info("Conversion started: %s"%datetime.now().replace(microsecond=0).isoformat())
@@ -140,6 +153,13 @@ class Converter():
         elif args.format == 'gramex':
             self.converter = GramexConverter(self.config)
         records = self.converter.get_authority_data(args, requested_ids)
+        if args.id_write_list:
+            with open(args.id_list, 'w', encoding='utf-8') as output:
+                for id in records:
+                    output.write(id + "\n")
+        if args.time_stamp:
+            with open(args.time_stamp, 'w', encoding='utf-8') as output:
+                output.write(datetime.today().strftime("%Y-%m-%d"))
         concat = False
         xmlschema = None
         dirmax = 100
@@ -160,7 +180,10 @@ class Converter():
         idx = 0
         logging.info("Starting to convert records...")
 
-        isnis = {}
+        modified_records = []
+        updated_records = set()
+        if args.output_to_api:
+            request = api_request.APIRequest(self.config['AUT NAMES API'])
         if args.output_raport_list:
             raport_writer = xlsx_raport_writer.RaportWriter(args.output_raport_list)
         for record_id in records:
@@ -201,8 +224,17 @@ class Converter():
                                     pm['sources'] = {code: re.sub("[\(].*?[\)]", "", source_ids[code]) for code in source_ids}
                             else:
                                 isni_data['errors'].append('Record has possible match in ISNI without id')
-                isni_data['errors'].extend(records[record_id]['errors'])
-                isnis[record_id] = isni_data
+                isni_data['errors'].extend(records[record_id]['errors'])            
+                modified_record = self.converter.create_isni_fields(record_id, isni_data, args.identifier)
+                if modified_record:
+                    modified_records.append(modified_record)
+                    if args.output_to_api:
+                        successful_updates = request.bulk_request(modified_record)
+                        if successful_updates:
+                            updated_records.update(successful_updates)
+                        if args.id_write_list and updated_records:
+                            self.remove_handles_ids_from_file(args.id_list, updated_records)
+                            updated_records = set()
                 if args.output_raport_list:
                     raport_writer.handle_response(isni_data, record_id, records[record_id])
             elif args.mode == "write":
@@ -213,14 +245,25 @@ class Converter():
                         xml_path = os.path.join(subdir, record_id + ".xml")
                     self.write_xml(xml, xml_path, args.concat)
             idx += 1
+        
+        if args.output_to_api:
+            while request.bulk_records or request.correlation_id:
+                try:
+                    successful_updates = request.bulk_request(wait=True)
+                    if successful_updates:
+                        updated_records.update(successful_updates)
+                    if args.id_write_list and updated_records:
+                        self.remove_handles_ids_from_file(args.id_list, updated_records)
+                        updated_records = set()
+                except ValueError as e:
+                    logging.error(e)
+                    break
+        if args.output_marc_fields:
+            self.converter.write_isni_fields(args.output_marc_fields, modified_records)
         logging.info("Conversion done for %s items"%idx)
         if args.concat:
             with open(args.output_directory+"/concat.xml", 'ab+') as concat_file:
                 concat_file.write(bytes("</root>", "UTF-8"))
-        if isnis:
-            isni_records = self.converter.create_isni_fields(isnis, args.identifier)
-            if args.output_marc_fields:
-                self.converter.write_isni_fields(args.output_marc_fields, isni_records)
 
     def valid_xml(self, record_id, xml, xmlschema):
         try:
@@ -276,6 +319,20 @@ class Converter():
         response = requests.post(url, data=xml.encode('utf-8'), headers=headers)
 
         return response
+
+    def remove_handles_ids_from_file(self, file_path, handled_ids):
+        """
+        Reads file that contains record ids to be sent to ISNI, removes sent id and rewrites file
+        :param file_path: File path fo
+        :handled_ids: list of identifiers of requested and updated authority records
+        """
+        unsent_ids = set()
+        with open(file_path, 'r', encoding='utf-8') as fh:
+            unsent_ids = {row.rstrip() for row in fh}
+        unsent_ids = unsent_ids - handled_ids
+        with open(file_path, 'w', encoding='utf-8') as output:
+            for id in unsent_ids:
+                output.write(id + "\n")
 
 if __name__ == '__main__':
     Converter()
