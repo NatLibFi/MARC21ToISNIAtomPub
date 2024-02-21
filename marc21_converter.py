@@ -25,7 +25,7 @@ class MARC21Converter:
         self.records = {}
         self.resources = None
         self.sru_bib_query = None
-        self.request_ids = []
+        self.request_ids = set()
 
     def get_linked_organisation_records(self, id, linked_ids, identities):
         """
