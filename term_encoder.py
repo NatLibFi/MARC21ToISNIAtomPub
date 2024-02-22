@@ -14,8 +14,7 @@ class TermEncoder():
             'country codes': 'country_codes.dat',
             'organisation types': 'organisation_types.dat',
             'function codes': 'function_codes.dat',
-            'person relation types': 'person_relation_types.dat',
-            'organisation relation types': 'organisation_relation_types.dat'
+            'relation types': 'relation_types.dat',
         }
         self.code_dicts = {}
         for name in code_files:

@@ -149,13 +149,14 @@ class MARC21Converter:
             modification_date = None
             record = marc_records[marc_id]
             for field in record.get_fields("CAT"):
-                cataloguer = field['a']
-                if cataloguer not in self.cataloguers:
-                    for sf in field.get_subfields('c'):
-                        formatted_date = sf[:4] + "-" + sf[4:6] + "-" + sf[6:8]
-                        if not creation_date:
-                            creation_date = formatted_date
-                        modification_date = formatted_date
+                if 'a' in field:
+                    cataloguer = field['a']
+                    if cataloguer not in self.cataloguers:
+                        for sf in field.get_subfields('c'):
+                            formatted_date = sf[:4] + "-" + sf[4:6] + "-" + sf[6:8]
+                            if not creation_date:
+                                creation_date = formatted_date
+                            modification_date = formatted_date
             if args.created_after:
                 if creation_date < args.created_after or args.until and creation_date >= args.until:
                     self.request_ids.discard(marc_id)
@@ -459,6 +460,7 @@ class MARC21Converter:
                         self.resources[record_id].append(resource)
 
         merge_ids = {}
+
         for id in identities:
             linked_ids = []
             self.get_linked_organisation_records(id, linked_ids, identities)
@@ -496,14 +498,9 @@ class MARC21Converter:
                     if related_id in identities:
                         if identities[related_id]['ISNI']:
                             related_name['ISNI'] = identities[related_id]['ISNI']
-            if identities[record_id]['identityType'] == 'personOrFiction':
-                relation_dict_type = "person relation types"
-            if identities[record_id]['identityType'] == 'organisation':
-                relation_dict_type = "organisation relation types" 
             deletable_relations = []
             for idx, related_name in enumerate(identities[record_id]['isRelated']): 
                 relationType = related_name['relationType']
-                relationType = self.term_encoder.encode_term(relationType, relation_dict_type)
                 if not relationType:
                     if not(identities[record_id]['identityType'] == 'organisation' and \
                         related_name['identityType'] == 'organisation'):
@@ -600,7 +597,7 @@ class MARC21Converter:
         """
         related_names = []
         pattern = re.compile(r'-?\d{4}-\d{2}-\d{2}|-?\d{4}-\d{2}|-?\d{4}')
-        
+
         relation_fields = ['373', '500', '510']
         for rf in relation_fields:
             for field in record.get_fields(rf):
@@ -637,6 +634,9 @@ class MARC21Converter:
                         identity['errors'].append(field.tag + " field is missing subfield 0")
                     for sf in field.get_subfields("i"):
                         relationType = sf.replace(":", "")
+                        relationType = self.term_encoder.encode_term(relationType, 'relation types')
+                        if not relationType:
+                            identity['errors'].append("Relation type translation missing for subfield i: %s"%(sf))
                     if '110' in record:
                         for sf in field.get_subfields("w"):
                             if sf == "a":
