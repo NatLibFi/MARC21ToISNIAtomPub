@@ -37,20 +37,21 @@ class MARC21Converter:
         if identities[id]['isni load']:
             for related in identities[id]['isRelated']:
                 if related['identityType'] == 'organisation' and related['relationType'] in ['supersedes', 'isSupersededBy']:
-                    related_id = related['identifier']
-                    if related_id not in linked_ids:
-                        related_org = identities[related_id]
-                        if identities[id]['ISNI']:
-                            if related_org['ISNI'] == identities[id]['ISNI']:
-                                if related_org['isni load']:
-                                    error_message = 'Record ' + related_id + ' has same ISNI, but 983 field missing'
-                                    identities[id]['errors'].append(error_message)
+                    if 'identifier' in related:
+                        related_id = related['identifier']
+                        if related_id not in linked_ids:
+                            related_org = identities[related_id]
+                            if identities[id]['ISNI']:
+                                if related_org['ISNI'] == identities[id]['ISNI']:
+                                    if related_org['isni load']:
+                                        error_message = 'Record ' + related_id + ' has same ISNI, but 983 field missing'
+                                        identities[id]['errors'].append(error_message)
+                                    else:
+                                        linked_ids.append(related_id)
+                                        self.get_linked_organisation_records(related_id, linked_ids, identities)
                                 else:
-                                    linked_ids.append(related_id)
-                                    self.get_linked_organisation_records(related_id, linked_ids, identities)
-                            else:
-                                if related_org['ISNI']:
-                                    identities[id]['isNot'].append({'type': 'ISNI', 'identifier': related_org['ISNI']})
+                                    if related_org['ISNI']:
+                                        identities[id]['isNot'].append({'type': 'ISNI', 'identifier': related_org['ISNI']})
 
     def request_linked_records(self, record, linked_records, linked_cluster, linked_ids):
         """
@@ -74,8 +75,6 @@ class MARC21Converter:
                         if '001' in marc_record:
                             linked_records[marc_record['001'].data] = marc_record
                             self.request_linked_records(marc_record, linked_records, linked_cluster, linked_ids)
-                        else:
-                            logging.error("Record %s in subfield 0 missing from record %s"%(linked_id, record['001'].data))
 
     def read_marc_records(self, args):
         """
@@ -270,14 +269,22 @@ class MARC21Converter:
             identity['isRelated'] = self.get_related_names(record, identity)
             if '100' in record:
                 identity['identityType'] = 'personOrFiction'
-                personal_name = self.get_personal_name(record_id, record['100'])      
-                if not personal_name:
-                    del(identities[record_id])
-                else:
+                personal_name = None
+                try:
+                    personal_name = self.get_personal_name(record['100'])
+                    if not personal_name:
+                        del(identities[record_id])
+                except ValueError as e:
+                    identity['errors'].append(str(e) + " 100")
+                if personal_name:
                     identity['personalName'] = personal_name
                     identity['personalNameVariant'] = []
                     for field in record.get_fields('400'):
-                        variant = self.get_personal_name(record_id, field)
+                        variant = None
+                        try:
+                            variant = self.get_personal_name(field)
+                        except ValueError as e:
+                            identity['errors'].append(str(e) + " 400")
                         is_related_name = False
                         for sf in field.get_subfields('4'):
                             if sf in ['toni', 'pseu']:
@@ -300,11 +307,14 @@ class MARC21Converter:
                         else:
                             if variant:
                                 identity['personalNameVariant'].append(variant)
-                    fuller_names = self.get_fuller_names(record)
-                    for fn in fuller_names:
-                        # check for duplicate names:
-                        if not any(pnv['surname'] == fn['surname'] and pnv['forename'] == fn['forename'] for pnv in identity['personalNameVariant']):
-                            identity['personalNameVariant'].append({'nameUse': 'public', 'surname': fn['surname'], 'forename': fn['forename']})
+                    try:
+                        fuller_names = self.get_fuller_names(record)
+                        for fn in fuller_names:
+                            # check for duplicate names:
+                            if not any(pnv['surname'] == fn['surname'] and pnv['forename'] == fn['forename'] for pnv in identity['personalNameVariant']):
+                                identity['personalNameVariant'].append({'nameUse': 'public', 'surname': fn['surname'], 'forename': fn['forename']})
+                    except ValueError:
+                        identity['errors'].append(str(e))
             elif '110' in record:
                 identity['identityType'] = 'organisation'
                 organisation_name = self.get_organisation_name(record['110'], record)
@@ -495,9 +505,17 @@ class MARC21Converter:
             for related_name in identities[record_id]['isRelated']:
                 if 'identifier' in related_name:
                     related_id = related_name['identifier']
-                    if related_id in identities:
-                        if identities[related_id]['ISNI']:
-                            related_name['ISNI'] = identities[related_id]['ISNI']
+                    if related_id:
+                        if related_id in identities:
+                            if identities[related_id]['ISNI']:
+                                if self.validator.valid_ISNI_checksum(identities[related_id]['ISNI']):
+                                    related_name['ISNI'] = identities[related_id]['ISNI']
+                                else:
+                                    identities[record_id]['errors'].append('Related record id %s has invalid ISNI %s'
+                                                                           %(related_id, identities[related_id]['ISNI']))
+                        else:
+                            identities[record_id]['errors'].append('Related record id %s not in database'%related_id)
+
             deletable_relations = []
             for idx, related_name in enumerate(identities[record_id]['isRelated']): 
                 relationType = related_name['relationType']
@@ -621,8 +639,11 @@ class MARC21Converter:
                         related_names.append(copied_name)
                 elif field.tag == "500" or field.tag == "510":
                     if field.tag == "500":
-                        related_name['identityType'] = "personOrFiction"
-                        related_name['personalName'] = self.get_personal_name(id, field)
+                        try:
+                            related_name['personalName'] = self.get_personal_name(field)
+                            related_name['identityType'] = "personOrFiction"
+                        except ValueError as e:
+                            identity['errors'].append(str(e) + " 500")
                     if field.tag == "510":
                         related_name['identityType'] = "organisation"
                         related_name['organisationName'] = self.get_organisation_name(field, record)
@@ -649,7 +670,7 @@ class MARC21Converter:
                             relationType = "undefined or unknown"
                     if '100' in record and not relationType:
                         relationType = "undefined or unknown"
-                    if relationType:
+                    if relationType and related_name['identityType']:
                         related_name['relationType'] = relationType
                         related_names.append(related_name)
 
@@ -677,10 +698,9 @@ class MARC21Converter:
             organisation_type = "Other to be defined"     
         return organisation_type
 
-    def get_personal_name(self, id, field):
+    def get_personal_name(self, field):
         """
         Get personal names data from MARC21 fields 100 and 400 for ISNI  
-        :param id: identifier from MARC21 field 001
         :param field: MARC21 field with tag 100
         """
         forename = None
@@ -726,8 +746,7 @@ class MARC21Converter:
                 # name of a family not to be included
                 surname = None
             else:
-                logging.error("%s: invalid indicator in field: %s"%(id, field))
-                return
+                raise ValueError ("invalid indicator in field")
         for sf in field.get_subfields("b"):
             numeration = sf
 
@@ -795,7 +814,7 @@ class MARC21Converter:
                     if surname:
                         fuller_names.append({"forename": forename, "surname": surname})
                     else:
-                        logging.error("%s: malformed fuller name: %s"%(id, field))
+                        raise ValueError("malformed fuller name in field 680")
         return fuller_names
 
     def get_organisation_name(self, field, record):
