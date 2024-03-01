@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, date
 from resource_list import ResourceList
 from term_encoder import TermEncoder
 from validators import Validator
@@ -14,7 +14,7 @@ import io
 import json
 import re
 import sys
-import xml
+import os
 
 class MARC21Converter:
     """
@@ -105,20 +105,33 @@ class MARC21Converter:
             logging.info("Requesting authority records with API")
             section = self.config['AUT NAMES API']
             self.aut_api_query = api_request.APIRequest(config_section=section)
-            if self.request_ids:
+            if self.request_ids and not args.time_stamp:
                 for id in self.request_ids:
                     record = self.aut_api_query.get_record(id)
                     if record and id not in marc_records:
                         marc_records[id] = record
-            elif args.modified_after or args.created_after or args.until:
+            elif args.modified_after or args.created_after or args.until or args.time_stamp:
                 section = self.config['AUT OAI-PMH API']
                 self.author_query = api_query.APIQuery(config_section=section)
                 query_parameters = {'verb': 'ListRecords'}
+                if args.time_stamp:
+                    if os.path.exists(args.time_stamp):
+                        with open(args.time_stamp, 'r') as fh:
+                            try:
+                                query_parameters['from'] = (datetime.strptime(next(fh), '%Y-%m-%d').date() - timedelta(days=1)).strftime("%Y-%m-%d")
+                            except ValueError:
+                                logging.error('Date not correctly formatted in time stamp file: %s'%args.time_stamp)
+                                sys.exit(2)
+                    else:
+                        update_interval = int(self.config['SETTINGS'].get('update_interval'))
+                        query_parameters['from'] = (date.today() - timedelta(days=update_interval)).strftime("%Y-%m-%d")
                 if args.modified_after:
                     query_parameters['from'] = args.modified_after
                 elif args.created_after:
                     query_parameters['from'] = args.created_after
-                if args.until:
+                if args.time_stamp:
+                    query_parameters['until'] = (date.today()).strftime("%Y-%m-%d")
+                elif args.until:
                     query_parameters['until'] = args.until
                 response = self.author_query.api_search(parameters=query_parameters)
                 self.request_ids = parse_oai_response.get_identifiers(response, query_parameters)
@@ -352,10 +365,8 @@ class MARC21Converter:
                         elif field['2'] == "isni":
                             identity['ISNI'] = identifier
                             isnis[record_id] = identifier
-
                 for identifier_type in identifiers:
                     identity['otherIdentifierOfIdentity'].append({'identifier': identifiers[identifier_type], 'type': identifier_type})
-
                 general_instruction = None
                 for field in record.get_fields('924'):
                     for sf in field.get_subfields('q'):
@@ -1097,7 +1108,7 @@ class MARC21Converter:
                 record.remove_field(field)
             # unnecessary 003 fields from OAI-PMH requests
             record.remove_fields('003')
-    
+
             return record
 
     def write_isni_fields(self, file_path, records):

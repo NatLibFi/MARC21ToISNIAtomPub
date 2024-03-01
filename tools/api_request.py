@@ -154,11 +154,11 @@ class APIRequest():
         if time.time() - self.poll_time > 3:
             response = requests.get(self.rest_url + '/bulk/?id=' + self.correlation_id, headers=self.content_headers , auth=self.auth)
             if _successful_poll(response):
-                self.correlation_id = None
                 response = json.loads(response.text)[0]
-                updated_records = set()
+                updated_records = {}
                 for record in response['records']:
                     if record['recordStatus'] == 'UPDATED':
-                        updated_records.add(record['databaseId'])
+                        updated_records[record['databaseId']] = {'status': record['recordStatus'], 'correlation id': self.correlation_id}
+                self.correlation_id = None
                 return updated_records
             self.poll_time = time.time()
