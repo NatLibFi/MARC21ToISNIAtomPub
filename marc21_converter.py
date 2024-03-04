@@ -473,9 +473,10 @@ class MARC21Converter:
 
         for id in identities:
             linked_ids = []
-            self.get_linked_organisation_records(id, linked_ids, identities)
-            if linked_ids:
-                merge_ids[id] = linked_ids
+            if id in self.request_ids:
+                self.get_linked_organisation_records(id, linked_ids, identities)
+                if linked_ids:
+                    merge_ids[id] = linked_ids
 
         for record_id in identities:
             if not args.resource_files:
