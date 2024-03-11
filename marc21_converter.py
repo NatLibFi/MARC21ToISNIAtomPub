@@ -540,7 +540,7 @@ class MARC21Converter:
                 del_counter += 1
 
         logging.info("Number of discarded records: %s"%del_counter)
-        logging.info("Number of identities to be converted: %s"%(len(identities) - len(deletable_identities)))
+        logging.info("Number of identities to be converted: %s"%(len(identities) - del_counter))
 
         for idx in identities:
             if idx not in self.request_ids:
@@ -640,6 +640,8 @@ class MARC21Converter:
                         related_names.append(copied_name)
                 elif field.tag == "500" or field.tag == "510":
                     if field.tag == "500":
+                        if field.indicators[0] == "3":
+                            continue
                         try:
                             related_name['personalName'] = self.get_personal_name(field)
                             related_name['identityType'] = "personOrFiction"
