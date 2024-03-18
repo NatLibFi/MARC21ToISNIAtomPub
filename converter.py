@@ -188,7 +188,8 @@ class Converter():
                         isni_data['errors'].extend([line for line in response.text.splitlines() if line])
                     else:
                         isni_data.update(parse_isni_response.dictify_xml(response.text)[0])
-                    if 'possible matches' in isni_data:
+                    # if record is not entered in ISNI database, but has possible matches:
+                    if 'possible matches' in isni_data and not 'ppn' in isni_data and not 'isni' in isni_data:
                         for pm in isni_data['possible matches']:
                             if 'ppn' in pm:
                                 ppn = pm['ppn']
