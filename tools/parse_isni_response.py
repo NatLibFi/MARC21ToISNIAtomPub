@@ -98,7 +98,9 @@ def get_source_identifiers(record, status):
             source_code = code_of_source.text
         for source_identifier in data.findall('sourceIdentifier'):
             identifier = source_identifier.text
-        sources[source_code] = identifier
+        if source_code not in sources:
+            sources[source_code] = []
+        sources[source_code].append(identifier)
 
     return sources
 
