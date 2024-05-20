@@ -497,8 +497,7 @@ class MARC21Converter:
 
         for id in identities:
             if len(identities[id]['resource']) > self.max_number_of_titles:
-                identities[id]['resource'] = self.get_relevant_resources(identities[id]['resource'], identity['languageOfIdentity'])
-
+                identities[id]['resource'] = self.get_relevant_resources(identities[id]['resource'], identities[id]['languageOfIdentity'])
         for record_id in identities:
             if not 'isNot' in identities[record_id]:
                 identities[record_id]['isNot'] = []
@@ -943,10 +942,14 @@ class MARC21Converter:
                     if resources[idx1]['title'] == resources[idx2]['title']:
                         mergeable_resources.append(idx2)
                         resources[idx1]['relevance'] += 1
-                        resources[idx1]['creationClass'] = None
-                        resources[idx1]['publisher'] = None
-                        resources[idx1]['date'] = None
-                        resources[idx1]['creationRole'] = None
+                        #resources[idx1]['creationClass'] = None
+                        #resources[idx1]['publisher'] = None
+                        #resources[idx1]['date'] = None
+                        #resources[idx1]['creationRole'] = None
+                        for identifier_type in resources[idx2]['identifiers']:
+                            if identifier_type not in resources[idx1]['identifiers']:
+                                resources[idx1]['identifiers'][identifier_type] = []
+                            resources[idx1]['identifiers'][identifier_type].extend(resources[idx2]['identifiers'][identifier_type])
         mergeable_resources.sort()
         mergeable_resources.reverse()
         # two possible roles author and contributor, sorting and relevance same as alphabetical order

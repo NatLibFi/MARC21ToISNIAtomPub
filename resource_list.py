@@ -184,7 +184,7 @@ class ResourceList:
         valid identifiers for titles of work in ISNI: ISRC, ISWC, ISBN, ISSN, ISAN, ISTC, ISMN, DOI, OCN
         :param record: MARC21 record
         """
-        identifier_values = {'ISBN': [], 'ISSN': [], 'ISRC': [], 'ISMN': [], 'DOI': []}
+        identifier_values = {}
         identifier_fields = ['020', '022', '024']
         for tag in identifier_fields:
             for field in record.get_fields(tag):
@@ -214,12 +214,16 @@ class ResourceList:
                             if identifier_type == 'ISRC':
                                 valid = self.validator.check_ISRC(sf)
                             if valid:
+                                if identifier_type not in identifier_values:
+                                    identifier_values[identifier_type] = []
                                 identifier_values[identifier_type].append(sf)
                             else:
                                 logging.error("Invalid %s in record: %s in field %s"%(identifier_type, record['001'].data, field))
                         else:
                             if identifier_type == 'ISMN':
                                 sf = sf.replace('-', '')
+                            if identifier_type not in identifier_values:
+                                identifier_values[identifier_type] = []
                             identifier_values[identifier_type].append(sf)
 
         return identifier_values
