@@ -166,6 +166,12 @@ class Converter():
         for record_id in records:
             merge_instruction = None
             merge_identifiers = []
+            if merge_instructions:
+                if record_id not in merge_instructions:
+                    continue
+                else:
+                    merge_instruction = merge_instructions[record_id]['instruction']
+                    merge_identifiers = merge_instructions[record_id]['identifiers']
             xml = None
             if not records[record_id]['errors']:
                 xml = create_xml(records[record_id], merge_instruction, merge_identifiers)
