@@ -110,9 +110,10 @@ def output_aleph_sequential_fields(identifiers, args):
                                         deletable_field = field
             for linked_id in linked_ids:
                 if linked_id != marc_id:
-                    if linked_id in isnis and isnis[linked_id] == isnis[marc_id] and isnis[marc_id] != identifiers[marc_id]['ISNI']:
-                        logging.error("ISNI %s changed in record %s to ISNI %s, check linked record %s with same ISNI"
-                                      %(isnis[marc_id], marc_id, identifiers[marc_id]['ISNI'], linked_id))
+                    if linked_id in isnis and marc_id in isnis and isnis[linked_id] == isnis[marc_id]:
+                        if marc_id in identifiers and isnis[marc_id] != identifiers[marc_id]['ISNI']:
+                            logging.error("ISNI %s changed in record %s to ISNI %s, check linked record %s with same ISNI"
+                                            %(isnis[marc_id], marc_id, identifiers[marc_id]['ISNI'], linked_id))
         if deletable_field:
             marc_record = marc_records[marc_id]
             field = Field(tag="001", data=str(marc_record.leader))
