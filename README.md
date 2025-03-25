@@ -1,3 +1,5 @@
+# This repository will no longer be maintained.
+
 # MARC21ToISNIAtomPub
 A tool to transform MARC21 files from MARC21 format into ISNI AtomPub requests. 
 
